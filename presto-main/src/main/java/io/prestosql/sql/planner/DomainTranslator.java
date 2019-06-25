@@ -16,6 +16,8 @@ package io.prestosql.sql.planner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.PeekingIterator;
+import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 import io.prestosql.Session;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.Signature;
@@ -464,18 +466,42 @@ public final class DomainTranslator
             ComparisonExpression.Operator comparisonOperator;
             NullableValue value;
 
-            if (left instanceof Expression) {
-                symbolExpression = comparison.getLeft();
-                comparisonOperator = comparison.getOperator();
-                value = new NullableValue(rightType, right);
-            }
-            else {
-                symbolExpression = comparison.getRight();
-                comparisonOperator = comparison.getOperator().flip();
-                value = new NullableValue(leftType, left);
+            if(!leftType.equals(rightType)){
+                if (left instanceof Expression) {
+                    symbolExpression = comparison.getLeft();
+                    comparisonOperator = comparison.getOperator();
+                    value = new NullableValue(leftType, cast(right, leftType));
+                }else{
+                    symbolExpression = comparison.getRight();
+                    comparisonOperator = comparison.getOperator().flip();
+                    value = new NullableValue(rightType, cast(left, rightType));
+                }
+            }else {
+
+                if (left instanceof Expression) {
+                    symbolExpression = comparison.getLeft();
+                    comparisonOperator = comparison.getOperator();
+                    value = new NullableValue(rightType, right);
+                } else {
+                    symbolExpression = comparison.getRight();
+                    comparisonOperator = comparison.getOperator().flip();
+                    value = new NullableValue(leftType, left);
+                }
             }
 
             return Optional.of(new NormalizedSimpleComparison(symbolExpression, comparisonOperator, value));
+        }
+
+        private Object cast(Object obj, Type toType)
+        {
+            if(toType.getJavaType() == long.class && obj instanceof Slice){
+                return Long.valueOf(((Slice) obj).toStringUtf8());
+            }else if(toType.getJavaType() == Slice.class && obj instanceof Long){
+                return Slices.utf8Slice(String.valueOf(obj));
+            }else {
+                throw new RuntimeException("Unsupported implicit type conversion");
+            }
+
         }
 
         private boolean isImplicitCoercion(Cast cast)
