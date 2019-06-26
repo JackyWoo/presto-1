@@ -2220,6 +2220,9 @@ class AstBuilder
                         .collect(Collectors.joining(","));
                 signature += "(" + typeParameterSignature + ")";
             }
+            if(signature.equals("string")){
+                return "varchar";
+            }
             return signature;
         }
 
