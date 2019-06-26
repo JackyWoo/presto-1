@@ -85,7 +85,7 @@ public class TestSetSessionTask
                 new TablePropertyManager(),
                 new ColumnPropertyManager(),
                 new AnalyzePropertyManager(),
-                transactionManager);
+                transactionManager,accessControl);
 
         metadata.getSessionPropertyManager().addSystemSessionProperty(stringProperty(
                 CATALOG_NAME,

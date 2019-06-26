@@ -23,6 +23,8 @@ import com.google.common.collect.Multimap;
 import io.airlift.slice.Slice;
 import io.prestosql.Session;
 import io.prestosql.connector.CatalogName;
+import io.prestosql.execution.warnings.WarningCollector;
+import io.prestosql.security.AccessControl;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.QueryId;
 import io.prestosql.spi.block.ArrayBlockEncoding;
@@ -80,9 +82,15 @@ import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeManager;
 import io.prestosql.spi.type.TypeNotFoundException;
 import io.prestosql.spi.type.TypeSignature;
+import io.prestosql.sql.analyzer.Analysis;
+import io.prestosql.sql.analyzer.Analyzer;
 import io.prestosql.sql.analyzer.FeaturesConfig;
+import io.prestosql.sql.analyzer.QueryExplainer;
+import io.prestosql.sql.parser.SqlParser;
 import io.prestosql.sql.planner.PartitioningHandle;
 import io.prestosql.sql.tree.QualifiedName;
+import io.prestosql.sql.tree.Statement;
+import io.prestosql.testing.TestingAccessControlManager;
 import io.prestosql.transaction.TransactionManager;
 import io.prestosql.type.TypeRegistry;
 
@@ -106,6 +114,7 @@ import java.util.concurrent.ConcurrentMap;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.prestosql.metadata.QualifiedObjectName.convertFromSchemaTableName;
 import static io.prestosql.spi.StandardErrorCode.INVALID_VIEW;
@@ -140,6 +149,7 @@ public final class MetadataManager
     private final ColumnPropertyManager columnPropertyManager;
     private final AnalyzePropertyManager analyzePropertyManager;
     private final TransactionManager transactionManager;
+    private final AccessControl accessControl;
 
     private final ConcurrentMap<String, BlockEncoding> blockEncodings = new ConcurrentHashMap<>();
     private final ConcurrentMap<String, Collection<ConnectorMetadata>> catalogsByQueryId = new ConcurrentHashMap<>();
@@ -152,7 +162,8 @@ public final class MetadataManager
             TablePropertyManager tablePropertyManager,
             ColumnPropertyManager columnPropertyManager,
             AnalyzePropertyManager analyzePropertyManager,
-            TransactionManager transactionManager)
+            TransactionManager transactionManager,
+            AccessControl accessControl)
     {
         functions = new FunctionRegistry(this, featuresConfig);
         if (typeManager instanceof TypeRegistry) {
@@ -167,7 +178,7 @@ public final class MetadataManager
         this.columnPropertyManager = requireNonNull(columnPropertyManager, "columnPropertyManager is null");
         this.analyzePropertyManager = requireNonNull(analyzePropertyManager, "analyzePropertyManager is null");
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
-
+        this.accessControl = accessControl;
         // add the built-in BlockEncodings
         addBlockEncoding(new VariableWidthBlockEncoding());
         addBlockEncoding(new ByteArrayBlockEncoding());
@@ -217,7 +228,7 @@ public final class MetadataManager
                 new TablePropertyManager(),
                 new ColumnPropertyManager(),
                 new AnalyzePropertyManager(),
-                transactionManager);
+                transactionManager,  new TestingAccessControlManager(transactionManager));
     }
 
     @Override
@@ -922,9 +933,33 @@ public final class MetadataManager
     public Optional<ConnectorViewDefinition> getView(Session session, QualifiedObjectName viewName)
     {
         return getOptionalCatalogMetadata(session, viewName.getCatalogName())
-                .flatMap(catalog -> catalog.getMetadata().getView(
-                        session.toConnectorSession(catalog.getCatalogName()),
-                        viewName.asSchemaTableName()));
+                .flatMap(catalog -> deserializeView(session,catalog.getMetadata().getView(
+                    session.toConnectorSession(catalog.getCatalogName()),
+                    viewName.asSchemaTableName()))
+                );
+    }
+
+    private Optional<ConnectorViewDefinition> deserializeView(Session session, Optional<ConnectorViewDefinition> vd)
+    {
+        if(vd.isPresent()){
+           ConnectorViewDefinition view = vd.get();
+           if (view.getOriginalSql() != null) {
+               SqlParser sqlParser = new SqlParser();
+               Analyzer analyzer = new Analyzer(session, this, sqlParser, accessControl,
+                   Optional.<QueryExplainer>empty(), new ArrayList(), WarningCollector.NOOP);
+               Statement statement = sqlParser.createStatement(view.getOriginalSql());
+               Analysis analysis = analyzer.analyze(statement);
+               List<ViewColumn> columns = analysis.getOutputDescriptor()
+                   .getVisibleFields().stream()
+                   .map(field -> new ViewColumn(field.getName().get(), field.getType().getTypeSignature()))
+                   .collect(toImmutableList());
+               return  Optional.of(new ConnectorViewDefinition(view.getOriginalSql(), session.getCatalog(), session.getSchema(), columns, view.getOwner(),false));
+            }
+           return Optional.of(view);
+        }
+        else{
+            return  Optional.empty();
+        }
     }
 
     @Override

@@ -302,6 +302,7 @@ public class LocalQueryRunner
                 notificationExecutor);
         this.nodePartitioningManager = new NodePartitioningManager(nodeScheduler);
 
+        this.accessControl = new TestingAccessControlManager(transactionManager);
         this.metadata = new MetadataManager(
                 featuresConfig,
                 typeRegistry,
@@ -310,7 +311,8 @@ public class LocalQueryRunner
                 new TablePropertyManager(),
                 new ColumnPropertyManager(),
                 new AnalyzePropertyManager(),
-                transactionManager);
+                transactionManager,
+                accessControl);
         this.splitManager = new SplitManager(new QueryManagerConfig(), metadata);
         this.planFragmenter = new PlanFragmenter(this.metadata, this.nodePartitioningManager, new QueryManagerConfig());
         this.joinCompiler = new JoinCompiler(metadata);
@@ -319,7 +321,6 @@ public class LocalQueryRunner
         this.taskCountEstimator = new TaskCountEstimator(() -> nodeCountForStats);
         this.costCalculator = new CostCalculatorUsingExchanges(taskCountEstimator);
         this.estimatedExchangesCostCalculator = new CostCalculatorWithEstimatedExchanges(costCalculator, taskCountEstimator);
-        this.accessControl = new TestingAccessControlManager(transactionManager);
         this.pageSourceManager = new PageSourceManager();
 
         this.pageFunctionCompiler = new PageFunctionCompiler(metadata, 0);

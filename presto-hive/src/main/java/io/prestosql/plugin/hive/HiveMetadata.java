@@ -176,6 +176,8 @@ import static io.prestosql.plugin.hive.HiveUtil.decodeViewData;
 import static io.prestosql.plugin.hive.HiveUtil.encodeViewData;
 import static io.prestosql.plugin.hive.HiveUtil.getPartitionKeyColumnHandles;
 import static io.prestosql.plugin.hive.HiveUtil.hiveColumnHandles;
+import static io.prestosql.plugin.hive.HiveUtil.isHiveView;
+import static io.prestosql.plugin.hive.HiveUtil.isPrestoView;
 import static io.prestosql.plugin.hive.HiveUtil.toPartitionValues;
 import static io.prestosql.plugin.hive.HiveUtil.verifyPartitionTypeSupported;
 import static io.prestosql.plugin.hive.HiveWriteUtils.checkTableIsWritable;
@@ -1569,21 +1571,39 @@ public class HiveMetadata
     public Optional<ConnectorViewDefinition> getView(ConnectorSession session, SchemaTableName viewName)
     {
         return metastore.getTable(viewName.getSchemaName(), viewName.getTableName())
-                .filter(HiveUtil::isPrestoView)
+//                .filter(HiveUtil::isPrestoView)
                 .map(view -> {
-                    ConnectorViewDefinition definition = decodeViewData(view.getViewOriginalText()
-                            .orElseThrow(() -> new PrestoException(HIVE_INVALID_METADATA, "No view original text: " + viewName)));
-                    // use owner from table metadata if it exists
-                    if (view.getOwner() != null && !definition.isRunAsInvoker()) {
-                        definition = new ConnectorViewDefinition(
-                                definition.getOriginalSql(),
-                                definition.getCatalog(),
-                                definition.getSchema(),
-                                definition.getColumns(),
-                                Optional.of(view.getOwner()),
-                                false);
+                    ConnectorViewDefinition viewDefn = null;
+                    if(isPrestoView(view) || isHiveView(view)) {
+                        if (isPrestoView(view)) {
+                            ConnectorViewDefinition definition = decodeViewData(view.getViewOriginalText()
+                                .orElseThrow(() -> new PrestoException(HIVE_INVALID_METADATA,
+                                    "No view original text: " + viewName)));
+                            // use owner from table metadata if it exists
+                            if (view.getOwner() != null && !definition.isRunAsInvoker()) {
+                                viewDefn = new ConnectorViewDefinition(
+                                    definition.getOriginalSql(),
+                                    definition.getCatalog(),
+                                    definition.getSchema(),
+                                    definition.getColumns(),
+                                    Optional.of(view.getOwner()),
+                                    false);
+                            }else{
+                                viewDefn = definition;
+                            }
+                        } else {
+                            String sql = view.getViewExpandedText().get();
+                            sql = sql.replace('`', '"');
+                            String owner = view.getOwner();
+                            if (owner != null) {
+                                int domainIndex = owner.indexOf('@');
+                                owner = (domainIndex < 0) ? owner : owner.substring(0, domainIndex);
+                            }
+                            viewDefn = new ConnectorViewDefinition(sql,
+                                Optional.of(viewName.getSchemaName()), Optional.of(viewName.getTableName()),ImmutableList.of(),Optional.ofNullable(owner), false);
+                        }
                     }
-                    return definition;
+                    return viewDefn;
                 });
     }
 

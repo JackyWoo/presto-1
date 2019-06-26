@@ -70,7 +70,7 @@ public class TestSetPathTask
                 new TablePropertyManager(),
                 new ColumnPropertyManager(),
                 new AnalyzePropertyManager(),
-                transactionManager);
+                transactionManager,accessControl);
     }
 
     @AfterClass(alwaysRun = true)

@@ -232,9 +232,9 @@ public class ThriftHiveMetastore
                     .run("getTable", stats.getGetTable().wrap(() -> {
                         try (ThriftMetastoreClient client = clientProvider.createMetastoreClient()) {
                             Table table = client.getTable(databaseName, tableName);
-                            if (table.getTableType().equals(TableType.VIRTUAL_VIEW.name()) && !isPrestoView(table)) {
-                                throw new HiveViewNotSupportedException(new SchemaTableName(databaseName, tableName));
-                            }
+//                            if (table.getTableType().equals(TableType.VIRTUAL_VIEW.name()) && !isPrestoView(table)) {
+//                                throw new HiveViewNotSupportedException(new SchemaTableName(databaseName, tableName));
+//                            }
                             return Optional.of(table);
                         }
                     }));

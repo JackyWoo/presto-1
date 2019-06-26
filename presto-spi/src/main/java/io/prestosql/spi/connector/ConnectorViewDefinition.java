@@ -55,9 +55,9 @@ public class ConnectorViewDefinition
         if (runAsInvoker && owner.isPresent()) {
             throw new IllegalArgumentException("owner cannot be present with runAsInvoker");
         }
-        if (columns.isEmpty()) {
-            throw new IllegalArgumentException("columns list is empty");
-        }
+//        if (columns.isEmpty()) {
+//            throw new IllegalArgumentException("columns list is empty");
+//        }
     }
 
     @JsonProperty
