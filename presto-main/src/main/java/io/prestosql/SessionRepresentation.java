@@ -302,4 +302,30 @@ public final class SessionRepresentation
                 sessionPropertyManager,
                 preparedStatements);
     }
+
+    @Override
+    public String toString() {
+        //Transaction:[%s] :: elapsed %sms
+        String data;
+        String user = unifiedFiled(getUser());
+        String source = unifiedFiled(getSource().toString());
+        String catalog = unifiedFiled(getCatalog().toString());
+        String db = unifiedFiled(getSchema().toString());
+        String remoteAddress = unifiedFiled(getRemoteUserAddress().toString());
+        data = " :: user " + user + " :: source " + source+" :: catalog " + catalog + " :: remoteAddress " + remoteAddress;
+        return data;
+    }
+
+    /**
+     * re_Fuction
+     * Normalized extract field
+     */
+    public String unifiedFiled (String raw) {
+        if (raw.contains("[") && raw.contains("]")) {
+            int indexLeft = raw.lastIndexOf('[');
+            int indexRight = raw.indexOf(']');
+            return raw.substring(indexLeft + 1, indexRight);
+        }
+        return raw;
+    }
 }

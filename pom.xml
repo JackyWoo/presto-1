@@ -83,7 +83,7 @@
         <module>presto-parser</module>
         <module>presto-main</module>
         <module>presto-jdbc</module>
-        <module>presto-cli</module>
+        <!--<module>presto-cli</module>-->
         <module>presto-matching</module>
         <module>presto-benchmark</module>
         <module>presto-hive</module>

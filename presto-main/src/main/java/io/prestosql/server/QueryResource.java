@@ -20,6 +20,7 @@ import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.prestosql.dispatcher.DispatchManager;
 import io.prestosql.dispatcher.DispatchQuery;
+import io.prestosql.event.QueryMonitor;
 import io.prestosql.execution.QueryInfo;
 import io.prestosql.execution.QueryManager;
 import io.prestosql.execution.QueryState;
@@ -67,6 +68,7 @@ public class QueryResource
     {
         this.dispatchManager = requireNonNull(dispatchManager, "dispatchManager is null");
         this.queryManager = requireNonNull(queryManager, "queryManager is null");
+        QueryMonitor.setQueryManager(queryManager);
     }
 
     @GET

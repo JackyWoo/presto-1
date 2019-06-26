@@ -25,14 +25,7 @@ import io.prestosql.client.NodeVersion;
 import io.prestosql.connector.CatalogName;
 import io.prestosql.cost.StatsAndCosts;
 import io.prestosql.eventlistener.EventListenerManager;
-import io.prestosql.execution.Column;
-import io.prestosql.execution.ExecutionFailureInfo;
-import io.prestosql.execution.Input;
-import io.prestosql.execution.QueryInfo;
-import io.prestosql.execution.QueryStats;
-import io.prestosql.execution.StageInfo;
-import io.prestosql.execution.TaskInfo;
-import io.prestosql.execution.TaskState;
+import io.prestosql.execution.*;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.SessionPropertyManager;
 import io.prestosql.operator.OperatorStats;
@@ -57,10 +50,7 @@ import org.joda.time.DateTime;
 
 import javax.inject.Inject;
 
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 import java.util.stream.Collectors;
 
 import static io.prestosql.execution.QueryState.QUEUED;
@@ -86,6 +76,12 @@ public class QueryMonitor
     private final SessionPropertyManager sessionPropertyManager;
     private final Metadata metadata;
     private final int maxJsonLimit;
+
+    private static QueryManager queryManager;
+    public static Map<String, List<String>> mapTable = new HashMap<>();
+    public static  void setQueryManager(QueryManager queryManager) {
+        QueryMonitor.queryManager = queryManager;
+    }
 
     @Inject
     public QueryMonitor(
@@ -482,7 +478,8 @@ public class QueryMonitor
             DateTime queryStartTime,
             DateTime queryEndTime)
     {
-        log.info("TIMELINE: Query %s :: Transaction:[%s] :: elapsed %sms :: planning %sms :: waiting %sms :: scheduling %sms :: running %sms :: finishing %sms :: begin %s :: end %s",
+        log.info("TIMELINE: Query %s :: Transaction:[%s] :: elapsed %sms :: planning %sms :: waiting %sms :: scheduling %sms " +
+                        ":: running %sms :: finishing %sms :: begin %s :: end %s :: state %s :: Query: %s:: table %s",
                 queryId,
                 transactionId,
                 elapsedMillis,
@@ -492,7 +489,10 @@ public class QueryMonitor
                 runningMillis,
                 finishingMillis,
                 queryStartTime,
-                queryEndTime);
+                queryEndTime,
+                queryManager.getQueryInfo(queryId).getState().toString(),
+                queryManager.getQueryInfo(queryId).getQuery(),
+                mapTable.get(queryId.toString()));
     }
 
     private static List<StageCpuDistribution> getCpuDistributions(QueryInfo queryInfo)
