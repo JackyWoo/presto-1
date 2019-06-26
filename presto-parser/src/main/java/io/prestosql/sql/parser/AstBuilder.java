@@ -2220,7 +2220,7 @@ class AstBuilder
                         .collect(Collectors.joining(","));
                 signature += "(" + typeParameterSignature + ")";
             }
-            if(signature.equals("string")){
+            if(signature.equalsIgnoreCase("string")){
                 return "varchar";
             }
             return signature;

@@ -86,6 +86,8 @@ import io.prestosql.spi.statistics.TableStatistics;
 import io.prestosql.spi.statistics.TableStatisticsMetadata;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeManager;
+import io.prestosql.spi.type.TypeSignature;
+import io.prestosql.spi.type.TypeSignatureParameter;
 import io.prestosql.spi.type.VarcharType;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.metastore.TableType;
@@ -213,6 +215,8 @@ import static io.prestosql.spi.predicate.TupleDomain.withColumnDomains;
 import static io.prestosql.spi.security.PrincipalType.USER;
 import static io.prestosql.spi.statistics.TableStatisticType.ROW_COUNT;
 import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.prestosql.spi.type.StandardTypes.MAP;
+import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
 import static java.util.Locale.ENGLISH;
@@ -1599,8 +1603,10 @@ public class HiveMetadata
                                 int domainIndex = owner.indexOf('@');
                                 owner = (domainIndex < 0) ? owner : owner.substring(0, domainIndex);
                             }
+
                             viewDefn = new ConnectorViewDefinition(sql,
-                                Optional.of(viewName.getSchemaName()), Optional.of(viewName.getTableName()),ImmutableList.of(),Optional.ofNullable(owner), false);
+                                Optional.of(viewName.getSchemaName()), Optional.of(viewName.getTableName()),ImmutableList.of(new ConnectorViewDefinition.ViewColumn("",
+                                new TypeSignature(MAP, TypeSignatureParameter.of(VARCHAR.getTypeSignature())))),Optional.ofNullable(owner), false);
                         }
                     }
                     return viewDefn;
