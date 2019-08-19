@@ -80,10 +80,11 @@
         <module>presto-array</module>
         <module>presto-record-decoder</module>
         <module>presto-client</module>
+        <module>presto-cli</module>
         <module>presto-parser</module>
         <module>presto-main</module>
         <module>presto-jdbc</module>
-        <!--<module>presto-cli</module>-->
+        <module>presto-orc</module>
         <module>presto-matching</module>
         <module>presto-benchmark</module>
         <module>presto-hive</module>
