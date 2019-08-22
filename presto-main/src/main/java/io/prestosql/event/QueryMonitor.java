@@ -478,21 +478,37 @@ public class QueryMonitor
             DateTime queryStartTime,
             DateTime queryEndTime)
     {
-        log.info("TIMELINE: Query %s :: Transaction:[%s] :: elapsed %sms :: planning %sms :: waiting %sms :: scheduling %sms " +
-                        ":: running %sms :: finishing %sms :: begin %s :: end %s :: state %s :: Query: %s:: table %s",
-                queryId,
-                transactionId,
-                elapsedMillis,
-                planningMillis,
-                waitingMillis,
-                schedulingMillis,
-                runningMillis,
-                finishingMillis,
-                queryStartTime,
-                queryEndTime,
-                queryManager.getQueryInfo(queryId).getState().toString(),
-                queryManager.getQueryInfo(queryId).getQuery(),
-                mapTable.get(queryId.toString()));
+        try {
+            log.info("TIMELINE: Query %s :: Transaction:[%s] :: elapsed %sms :: planning %sms :: waiting %sms :: scheduling %sms " +
+                            ":: running %sms :: finishing %sms :: begin %s :: end %s :: state %s :: Query: %s%s :: table %s",
+                    queryId,
+                    transactionId,
+                    elapsedMillis,
+                    planningMillis,
+                    waitingMillis,
+                    schedulingMillis,
+                    runningMillis,
+                    finishingMillis,
+                    queryStartTime,
+                    queryEndTime,
+                    queryManager.getQueryInfo(queryId).getState().toString(),
+                    queryManager.getQueryInfo(queryId).getQuery(),
+                    queryManager.getQueryInfo(queryId).getSession().toString(),
+                    mapTable.get(queryId.toString()));
+        } catch (NoSuchElementException e){
+            log.info("TIMELINE: Query %s :: Transaction:[%s] :: elapsed %sms :: planning %sms :: waiting %sms :: scheduling %sms " +
+                            ":: running %sms :: finishing %sms :: begin %s :: end %s :: state %s ",
+                    queryId,
+                    transactionId,
+                    elapsedMillis,
+                    planningMillis,
+                    waitingMillis,
+                    schedulingMillis,
+                    runningMillis,
+                    finishingMillis,
+                    queryStartTime,
+                    queryEndTime, "Failed");
+        }
     }
 
     private static List<StageCpuDistribution> getCpuDistributions(QueryInfo queryInfo)

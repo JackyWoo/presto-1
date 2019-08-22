@@ -172,7 +172,8 @@ public class LogicalPlanner
 
         Collection<TableHandle> tableHandles = analysis.getTables();
         String user = session.getUser();
-        Boolean isValid = true;
+
+//        Boolean isValid = true;
 
         //jdbc valid
         if (session.getSource().toString().equals("Optional[presto-jdbc]")) {
@@ -228,33 +229,32 @@ public class LogicalPlanner
                     table = th.toString().split("\\.")[1];
                 }
 
-                log.info(format("queryID:%s user:%s database:%s table:%s operatorType:%s", session.getQueryId(), user,
-                        database, table, operatorType));
-
                 tables.add(database + "::" + table + "::" + operatorType);
-                boolean isValidPart = true;
 
-                if (session.getCatalog().toString().startsWith("Optional[hive")) {
-                    isValidPart = getPermission(user, database, table, operatorType);
-                }
+//                log.info(format("queryID:%s user:%s database:%s table:%s operatorType:%s", session.getQueryId(), user,
+//                        database, table, operatorType));
+//                boolean isValidPart = true;
+//                if (session.getCatalog().toString().startsWith("Optional[hive")) {
+//                    isValidPart = getPermission(user, database, table, operatorType);
+//                }
+//                if (!isValidPart) {
+//                    isValid = false;
+//                    break;
+//                }
 
-                if (!isValidPart) {
-                    isValid = false;
-                    break;
-                }
             }
             QueryMonitor.mapTable.put(session.getQueryId().toString(), tables);
         }
 
-        if (isValid) {
-            log.info(format("queryID:%s user:%s   Query is Valid", session.getQueryId(), user));
-        } else {
-            root = null;
-            log.info(format("queryID:%s user:%s   Query is not Valid , Insufficient data access ! Please check",
-                    session.getQueryId(), user));
-            requireNonNull(root, format("hi %s , Insufficient data access ! Please check . Get permissions: " +
-                    "http://data.oppoer.me/portal/html/PermissionCreate.html", user));
-        }
+//        if (isValid) {
+//            log.info(format("queryID:%s user:%s   Query is Valid", session.getQueryId(), user));
+//        } else {
+//            root = null;
+//            log.info(format("queryID:%s user:%s   Query is not Valid , Insufficient data access ! Please check",
+//                    session.getQueryId(), user));
+//            requireNonNull(root, format("hi %s , Insufficient data access ! Please check . Get permissions: " +
+//                    "http://data.oppoer.me/portal/html/PermissionCreate.html", user));
+//        }
 
         planSanityChecker.validateIntermediatePlan(root, session, metadata, typeAnalyzer, symbolAllocator.getTypes(), warningCollector);
 
