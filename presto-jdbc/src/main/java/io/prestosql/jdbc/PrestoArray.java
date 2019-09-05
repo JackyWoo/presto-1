@@ -68,8 +68,8 @@ public class PrestoArray
     public Object getArray(long index, int count)
             throws SQLException
     {
-        int arrayOffset = Ints.saturatedCast(index - 1);
-        if (index < 1 || count < 0 || (arrayOffset + count) > array.length) {
+        int arrayOffset = Ints.saturatedCast(index);
+        if (index < 0 || count < 0 || (arrayOffset + count + 1) > array.length) {
             throw new SQLException("Index out of bounds");
         }
         return Arrays.copyOfRange(array, arrayOffset, arrayOffset + count);

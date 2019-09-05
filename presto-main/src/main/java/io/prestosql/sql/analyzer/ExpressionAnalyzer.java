@@ -32,10 +32,14 @@ import io.prestosql.security.DenyAllAccessControl;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.StandardErrorCode;
 import io.prestosql.spi.function.OperatorType;
+import io.prestosql.spi.type.BigintType;
 import io.prestosql.spi.type.CharType;
 import io.prestosql.spi.type.DecimalParseResult;
+import io.prestosql.spi.type.DecimalType;
 import io.prestosql.spi.type.Decimals;
+import io.prestosql.spi.type.IntegerType;
 import io.prestosql.spi.type.RowType;
+import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeManager;
 import io.prestosql.spi.type.TypeNotFoundException;
@@ -80,6 +84,7 @@ import io.prestosql.sql.tree.IsNullPredicate;
 import io.prestosql.sql.tree.LambdaArgumentDeclaration;
 import io.prestosql.sql.tree.LambdaExpression;
 import io.prestosql.sql.tree.LikePredicate;
+import io.prestosql.sql.tree.Literal;
 import io.prestosql.sql.tree.LogicalBinaryExpression;
 import io.prestosql.sql.tree.LongLiteral;
 import io.prestosql.sql.tree.Node;
@@ -109,6 +114,7 @@ import io.prestosql.type.FunctionType;
 import javax.annotation.Nullable;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -116,6 +122,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
@@ -161,6 +168,7 @@ import static io.prestosql.type.UnknownType.UNKNOWN;
 import static io.prestosql.util.DateTimeUtils.parseTimestampLiteral;
 import static io.prestosql.util.DateTimeUtils.timeHasTimeZone;
 import static io.prestosql.util.DateTimeUtils.timestampHasTimeZone;
+import static java.lang.Math.max;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Collections.unmodifiableMap;
@@ -480,6 +488,16 @@ public class ExpressionAnalyzer
         @Override
         protected Type visitComparisonExpression(ComparisonExpression node, StackableAstVisitorContext<Context> context)
         {
+            Type leftType = process(node.getLeft(), context);
+            Type rightType = process(node.getRight(), context);
+
+            if(isVarchar(leftType) && isNumber(rightType)){
+                node.setLeft(new Cast(node.getLeft(), StandardTypes.DOUBLE));
+            }
+            else if(isNumber(leftType) && isVarchar(rightType)){
+                node.setRight(new Cast(node.getRight(), StandardTypes.DOUBLE));
+            }
+
             OperatorType operatorType = OperatorType.valueOf(node.getOperator().name());
             return getOperator(context, node, operatorType, node.getLeft(), node.getRight());
         }
@@ -610,6 +628,13 @@ public class ExpressionAnalyzer
         @Override
         protected Type visitArithmeticBinary(ArithmeticBinaryExpression node, StackableAstVisitorContext<Context> context)
         {
+            if(isVarchar(process(node.getLeft(), context))){
+                node.setLeft(new Cast(node.getLeft(), StandardTypes.DOUBLE));
+            }
+            if(isVarchar(process(node.getRight(), context))){
+                node.setRight(new Cast(node.getRight(), StandardTypes.DOUBLE));
+            }
+
             return getOperator(context, node, OperatorType.valueOf(node.getOperator().name()), node.getLeft(), node.getRight());
         }
 
@@ -853,6 +878,19 @@ public class ExpressionAnalyzer
                 process(expression, context);
             }
 
+            if(node.getName().equals(QualifiedName.of("sum")) ||
+                    node.getName().equals(QualifiedName.of("avg"))){
+
+                List<Expression> arguments = node.getArguments().stream().map(argument ->
+                        isVarchar(process(argument, context)) ?
+                                new Cast(argument, StandardTypes.DOUBLE) : argument
+                ).collect(Collectors.toList());
+
+                if(!node.getArguments().equals(arguments)) {
+                    node.setArguments(arguments);
+                }
+            }
+
             ImmutableList.Builder<TypeSignatureProvider> argumentTypesBuilder = ImmutableList.builder();
             for (Expression expression : node.getArguments()) {
                 if (expression instanceof LambdaExpression || expression instanceof BindExpression) {
@@ -1028,6 +1066,22 @@ public class ExpressionAnalyzer
         @Override
         protected Type visitBetweenPredicate(BetweenPredicate node, StackableAstVisitorContext<Context> context)
         {
+            Type valueType = process(node.getValue(), context);
+            Type minType = process(node.getMin(), context);
+            Type maxType = process(node.getMax(), context);
+
+            if(!isSameBaseType(valueType, minType, maxType)){
+                if(isVarchar(valueType)){
+                    node.setValue(new Cast(node.getValue(), StandardTypes.DOUBLE));
+                }
+                if(isVarchar(minType)){
+                    node.setMin(new Cast(node.getMin(), StandardTypes.DOUBLE));
+                }
+                if(isVarchar(maxType)){
+                    node.setMax(new Cast(node.getMax(), StandardTypes.DOUBLE));
+                }
+            }
+
             return getOperator(context, node, OperatorType.BETWEEN, node.getValue(), node.getMin(), node.getMax());
         }
 
@@ -1070,13 +1124,26 @@ public class ExpressionAnalyzer
         protected Type visitInPredicate(InPredicate node, StackableAstVisitorContext<Context> context)
         {
             Expression value = node.getValue();
-            process(value, context);
+            Type valueType = process(node.getValue(), context);
 
             Expression valueList = node.getValueList();
-            process(valueList, context);
 
             if (valueList instanceof InListExpression) {
                 InListExpression inListExpression = (InListExpression) valueList;
+
+                List<Expression> inList = inListExpression.getValues().stream().map(v -> {
+                    if(isVarchar(valueType) && isNumber(process(v, context))){
+                        return new Cast(v, StandardTypes.VARCHAR);
+                    } else if(isNumber(valueType) && isVarchar(process(v, context))){
+                        return new Cast(v, valueType.getDisplayName());
+                    }
+                    return v;
+                }).collect(Collectors.toList());
+
+                if(!inListExpression.getValues().equals(inList)) {
+                    inListExpression = new InListExpression(inList);
+                    node.setValueList(inListExpression);
+                }
 
                 coerceToSingleType(context,
                         "IN value and list items must be the same type: %s",
@@ -1086,7 +1153,44 @@ public class ExpressionAnalyzer
                 coerceToSingleType(context, node, "value and result of subquery must be of the same type for IN expression: %s vs %s", value, valueList);
             }
 
+            process(node.getValueList(), context);
+
             return setExpressionType(node, BOOLEAN);
+        }
+
+        private boolean isNumber(Type type)
+        {
+            return type == BIGINT ||
+                    type == INTEGER ||
+                    type == SMALLINT ||
+                    type == TINYINT ||
+                    type == DOUBLE ||
+                    type == REAL ||
+                    type.getTypeSignature().getBase().equals(StandardTypes.DECIMAL);
+        }
+
+        private boolean isSameBaseType(Type... types)
+        {
+            if(types == null || types.length == 0){
+                return true;
+            }
+
+            for (Type type : types) {
+                if(!type.getTypeSignature().getBase().equals(
+                        types[0].getTypeSignature().getBase())){
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        private boolean isVarchar(Type type)
+        {
+            return typeManager.canCoerce(type, VarcharType.VARCHAR);
+        }
+
+        private boolean isLiteral(Expression node){
+            return node instanceof Literal;
         }
 
         @Override

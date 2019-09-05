@@ -38,24 +38,22 @@ public final class ArraySliceFunction
             @SqlType(StandardTypes.BIGINT) long fromIndex,
             @SqlType(StandardTypes.BIGINT) long length)
     {
-        checkCondition(length >= 0, INVALID_FUNCTION_ARGUMENT, "length must be greater than or equal to 0");
-        checkCondition(fromIndex != 0, INVALID_FUNCTION_ARGUMENT, "SQL array indices start at 1");
+//        checkCondition(length >= 0, INVALID_FUNCTION_ARGUMENT, "length must be greater than or equal to 0");
+//        checkCondition(fromIndex > 0, INVALID_FUNCTION_ARGUMENT, "SQL array indices start at 1");
 
         int size = array.getPositionCount();
         if (size == 0) {
             return array;
         }
 
-        if (fromIndex < 0) {
-            fromIndex = size + fromIndex + 1;
-        }
+        fromIndex = fromIndex < 0 ? 0 : fromIndex;
+        long toIndex = Math.min(fromIndex + length, size);
 
-        long toIndex = Math.min(fromIndex + length, size + 1);
 
-        if (fromIndex >= toIndex || fromIndex < 1) {
+        if (fromIndex >= toIndex || length <= 0) {
             return type.createBlockBuilder(null, 0).build();
         }
 
-        return array.getRegion((int) (fromIndex - 1), (int) (toIndex - fromIndex));
+        return array.getRegion((int) fromIndex, (int) (toIndex - fromIndex));
     }
 }

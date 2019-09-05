@@ -23,7 +23,7 @@ public class InPredicate
         extends Expression
 {
     private final Expression value;
-    private final Expression valueList;
+    private Expression valueList;
 
     public InPredicate(Expression value, Expression valueList)
     {
@@ -50,6 +50,11 @@ public class InPredicate
     public Expression getValueList()
     {
         return valueList;
+    }
+
+    public Expression setValueList(Expression valueList)
+    {
+        return this.valueList = valueList;
     }
 
     @Override

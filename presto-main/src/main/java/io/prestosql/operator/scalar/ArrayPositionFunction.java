@@ -52,7 +52,7 @@ public final class ArrayPositionFunction
                     Boolean result = (Boolean) equalMethodHandle.invokeExact(arrayValue, element);
                     checkNotIndeterminate(result);
                     if (result) {
-                        return i + 1; // result is 1-based (instead of 0)
+                        return i; // result is 1-based (instead of 0)
                     }
                 }
                 catch (Throwable t) {
@@ -60,7 +60,7 @@ public final class ArrayPositionFunction
                 }
             }
         }
-        return 0;
+        return -1;
     }
 
     @TypeParameter("T")
@@ -79,7 +79,7 @@ public final class ArrayPositionFunction
                     Boolean result = (Boolean) equalMethodHandle.invokeExact(arrayValue, element);
                     checkNotIndeterminate(result);
                     if (result) {
-                        return i + 1; // result is 1-based (instead of 0)
+                        return i; // result is 1-based (instead of 0)
                     }
                 }
                 catch (Throwable t) {
@@ -87,7 +87,7 @@ public final class ArrayPositionFunction
                 }
             }
         }
-        return 0;
+        return -1;
     }
 
     @TypeParameter("T")
@@ -106,7 +106,7 @@ public final class ArrayPositionFunction
                     Boolean result = (Boolean) equalMethodHandle.invokeExact(arrayValue, element);
                     checkNotIndeterminate(result);
                     if (result) {
-                        return i + 1; // result is 1-based (instead of 0)
+                        return i; // result is 1-based (instead of 0)
                     }
                 }
                 catch (Throwable t) {
@@ -114,7 +114,7 @@ public final class ArrayPositionFunction
                 }
             }
         }
-        return 0;
+        return -1;
     }
 
     @TypeParameter("T")
@@ -133,7 +133,7 @@ public final class ArrayPositionFunction
                     Boolean result = (Boolean) equalMethodHandle.invokeExact(arrayValue, element);
                     checkNotIndeterminate(result);
                     if (result) {
-                        return i + 1; // result is 1-based (instead of 0)
+                        return i; // result is 1-based (instead of 0)
                     }
                 }
                 catch (Throwable t) {
@@ -141,7 +141,7 @@ public final class ArrayPositionFunction
                 }
             }
         }
-        return 0;
+        return -1;
     }
 
     @TypeParameter("T")
@@ -160,7 +160,7 @@ public final class ArrayPositionFunction
                     Boolean result = (Boolean) equalMethodHandle.invoke(arrayValue, element);
                     checkNotIndeterminate(result);
                     if (result) {
-                        return i + 1; // result is 1-based (instead of 0)
+                        return i; // result is 1-based (instead of 0)
                     }
                 }
                 catch (Throwable t) {
@@ -168,7 +168,7 @@ public final class ArrayPositionFunction
                 }
             }
         }
-        return 0;
+        return -1;
     }
 
     private static void checkNotIndeterminate(Boolean equalsResult)

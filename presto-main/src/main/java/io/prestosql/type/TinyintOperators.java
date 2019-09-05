@@ -96,11 +96,11 @@ public final class TinyintOperators
     }
 
     @ScalarOperator(DIVIDE)
-    @SqlType(StandardTypes.TINYINT)
-    public static long divide(@SqlType(StandardTypes.TINYINT) long left, @SqlType(StandardTypes.TINYINT) long right)
+    @SqlType(StandardTypes.DOUBLE)
+    public static double divide(@SqlType(StandardTypes.TINYINT) long left, @SqlType(StandardTypes.TINYINT) long right)
     {
         try {
-            return left / right;
+            return left * 1.0D / right;
         }
         catch (ArithmeticException e) {
             throw new PrestoException(DIVISION_BY_ZERO, "Division by zero", e);

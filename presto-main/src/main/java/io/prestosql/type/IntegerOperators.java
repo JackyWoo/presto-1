@@ -102,7 +102,7 @@ public final class IntegerOperators
     public static double divide(@SqlType(StandardTypes.INTEGER) long left, @SqlType(StandardTypes.INTEGER) long right)
     {
         try {
-            return left * 1.0 / right;
+            return left * 1.0D / right;
         }
         catch (ArithmeticException e) {
             throw new PrestoException(DIVISION_BY_ZERO, "Division by zero", e);

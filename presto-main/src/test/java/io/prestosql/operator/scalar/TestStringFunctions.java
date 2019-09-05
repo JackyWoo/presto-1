@@ -274,18 +274,18 @@ public class TestStringFunctions
     @Test
     public void testStringPosition()
     {
-        testStrPosAndPosition("high", "ig", 2L);
-        testStrPosAndPosition("high", "igx", 0L);
-        testStrPosAndPosition("Quadratically", "a", 3L);
-        testStrPosAndPosition("foobar", "foobar", 1L);
-        testStrPosAndPosition("foobar", "obar", 3L);
-        testStrPosAndPosition("zoo!", "!", 4L);
-        testStrPosAndPosition("x", "", 1L);
-        testStrPosAndPosition("", "", 1L);
+        testStrPosAndPosition("high", "ig", 1L);
+        testStrPosAndPosition("high", "igx", -1L);
+        testStrPosAndPosition("Quadratically", "a", 2L);
+        testStrPosAndPosition("foobar", "foobar", 0L);
+        testStrPosAndPosition("foobar", "obar", 2L);
+        testStrPosAndPosition("zoo!", "!", 3L);
+        testStrPosAndPosition("x", "", 0L);
+        testStrPosAndPosition("", "", 0L);
 
-        testStrPosAndPosition("\u4FE1\u5FF5,\u7231,\u5E0C\u671B", "\u7231", 4L);
-        testStrPosAndPosition("\u4FE1\u5FF5,\u7231,\u5E0C\u671B", "\u5E0C\u671B", 6L);
-        testStrPosAndPosition("\u4FE1\u5FF5,\u7231,\u5E0C\u671B", "nice", 0L);
+        testStrPosAndPosition("\u4FE1\u5FF5,\u7231,\u5E0C\u671B", "\u7231", 3L);
+        testStrPosAndPosition("\u4FE1\u5FF5,\u7231,\u5E0C\u671B", "\u5E0C\u671B", 5L);
+        testStrPosAndPosition("\u4FE1\u5FF5,\u7231,\u5E0C\u671B", "nice", -1L);
 
         testStrPosAndPosition(null, "", null);
         testStrPosAndPosition("", null, null);
@@ -304,78 +304,78 @@ public class TestStringFunctions
     @Test
     public void testSubstring()
     {
-        assertFunction("SUBSTR('Quadratically', 5)", createVarcharType(13), "ratically");
+        assertFunction("SUBSTR('Quadratically', 5)", createVarcharType(13), "atically");
         assertFunction("SUBSTR('Quadratically', 50)", createVarcharType(13), "");
         assertFunction("SUBSTR('Quadratically', -5)", createVarcharType(13), "cally");
         assertFunction("SUBSTR('Quadratically', -50)", createVarcharType(13), "");
-        assertFunction("SUBSTR('Quadratically', 0)", createVarcharType(13), "");
+        assertFunction("SUBSTR('Quadratically', 0)", createVarcharType(13), "Quadratically");
 
-        assertFunction("SUBSTR('Quadratically', 5, 6)", createVarcharType(13), "ratica");
-        assertFunction("SUBSTR('Quadratically', 5, 10)", createVarcharType(13), "ratically");
-        assertFunction("SUBSTR('Quadratically', 5, 50)", createVarcharType(13), "ratically");
+        assertFunction("SUBSTR('Quadratically', 4, 6)", createVarcharType(13), "ratica");
+        assertFunction("SUBSTR('Quadratically', 4, 10)", createVarcharType(13), "ratically");
+        assertFunction("SUBSTR('Quadratically', 4, 50)", createVarcharType(13), "ratically");
         assertFunction("SUBSTR('Quadratically', 50, 10)", createVarcharType(13), "");
         assertFunction("SUBSTR('Quadratically', -5, 4)", createVarcharType(13), "call");
         assertFunction("SUBSTR('Quadratically', -5, 40)", createVarcharType(13), "cally");
         assertFunction("SUBSTR('Quadratically', -50, 4)", createVarcharType(13), "");
-        assertFunction("SUBSTR('Quadratically', 0, 4)", createVarcharType(13), "");
-        assertFunction("SUBSTR('Quadratically', 5, 0)", createVarcharType(13), "");
+        assertFunction("SUBSTR('Quadratically', 0, 4)", createVarcharType(13), "Quad");
+        assertFunction("SUBSTR('Quadratically', 4, 0)", createVarcharType(13), "");
 
-        assertFunction("SUBSTRING('Quadratically' FROM 5)", createVarcharType(13), "ratically");
+        assertFunction("SUBSTRING('Quadratically' FROM 4)", createVarcharType(13), "ratically");
         assertFunction("SUBSTRING('Quadratically' FROM 50)", createVarcharType(13), "");
         assertFunction("SUBSTRING('Quadratically' FROM -5)", createVarcharType(13), "cally");
         assertFunction("SUBSTRING('Quadratically' FROM -50)", createVarcharType(13), "");
-        assertFunction("SUBSTRING('Quadratically' FROM 0)", createVarcharType(13), "");
+        assertFunction("SUBSTRING('Quadratically' FROM 0)", createVarcharType(13), "Quadratically");
 
-        assertFunction("SUBSTRING('Quadratically' FROM 5 FOR 6)", createVarcharType(13), "ratica");
-        assertFunction("SUBSTRING('Quadratically' FROM 5 FOR 50)", createVarcharType(13), "ratically");
+        assertFunction("SUBSTRING('Quadratically' FROM 4 FOR 6)", createVarcharType(13), "ratica");
+        assertFunction("SUBSTRING('Quadratically' FROM 4 FOR 50)", createVarcharType(13), "ratically");
         //
         // Test SUBSTRING for non-ASCII
-        assertFunction("SUBSTRING('\u4FE1\u5FF5,\u7231,\u5E0C\u671B' FROM 1 FOR 1)", createVarcharType(7), "\u4FE1");
-        assertFunction("SUBSTRING('\u4FE1\u5FF5,\u7231,\u5E0C\u671B' FROM 3 FOR 5)", createVarcharType(7), ",\u7231,\u5E0C\u671B");
-        assertFunction("SUBSTRING('\u4FE1\u5FF5,\u7231,\u5E0C\u671B' FROM 4)", createVarcharType(7), "\u7231,\u5E0C\u671B");
+        assertFunction("SUBSTRING('\u4FE1\u5FF5,\u7231,\u5E0C\u671B' FROM 0 FOR 1)", createVarcharType(7), "\u4FE1");
+        assertFunction("SUBSTRING('\u4FE1\u5FF5,\u7231,\u5E0C\u671B' FROM 2 FOR 5)", createVarcharType(7), ",\u7231,\u5E0C\u671B");
+        assertFunction("SUBSTRING('\u4FE1\u5FF5,\u7231,\u5E0C\u671B' FROM 3)", createVarcharType(7), "\u7231,\u5E0C\u671B");
         assertFunction("SUBSTRING('\u4FE1\u5FF5,\u7231,\u5E0C\u671B' FROM -2)", createVarcharType(7), "\u5E0C\u671B");
-        assertFunction("SUBSTRING('\uD801\uDC2Dend' FROM 1 FOR 1)", createVarcharType(4), "\uD801\uDC2D");
-        assertFunction("SUBSTRING('\uD801\uDC2Dend' FROM 2 FOR 3)", createVarcharType(4), "end");
+        assertFunction("SUBSTRING('\uD801\uDC2Dend' FROM 0 FOR 1)", createVarcharType(4), "\uD801\uDC2D");
+        assertFunction("SUBSTRING('\uD801\uDC2Dend' FROM 1 FOR 3)", createVarcharType(4), "end");
     }
 
     @Test
     public void testCharSubstring()
     {
-        assertFunction("SUBSTR(CAST('Quadratically' AS CHAR(13)), 5)", createCharType(13), padRight("ratically", 13));
+        assertFunction("SUBSTR(CAST('Quadratically' AS CHAR(13)), 4)", createCharType(13), padRight("ratically", 13));
         assertFunction("SUBSTR(CAST('Quadratically' AS CHAR(13)), 50)", createCharType(13), padRight("", 13));
         assertFunction("SUBSTR(CAST('Quadratically' AS CHAR(13)), -5)", createCharType(13), padRight("cally", 13));
         assertFunction("SUBSTR(CAST('Quadratically' AS CHAR(13)), -50)", createCharType(13), padRight("", 13));
-        assertFunction("SUBSTR(CAST('Quadratically' AS CHAR(13)), 0)", createCharType(13), padRight("", 13));
+        assertFunction("SUBSTR(CAST('Quadratically' AS CHAR(13)), 0)", createCharType(13), padRight("Quadratically", 13));
 
-        assertFunction("SUBSTR(CAST('Quadratically' AS CHAR(13)), 5, 6)", createCharType(13), padRight("ratica", 13));
-        assertFunction("SUBSTR(CAST('Quadratically' AS CHAR(13)), 5, 10)", createCharType(13), padRight("ratically", 13));
-        assertFunction("SUBSTR(CAST('Quadratically' AS CHAR(13)), 5, 50)", createCharType(13), padRight("ratically", 13));
+        assertFunction("SUBSTR(CAST('Quadratically' AS CHAR(13)), 4, 6)", createCharType(13), padRight("ratica", 13));
+        assertFunction("SUBSTR(CAST('Quadratically' AS CHAR(13)), 4, 10)", createCharType(13), padRight("ratically", 13));
+        assertFunction("SUBSTR(CAST('Quadratically' AS CHAR(13)), 4, 50)", createCharType(13), padRight("ratically", 13));
         assertFunction("SUBSTR(CAST('Quadratically' AS CHAR(13)), 50, 10)", createCharType(13), padRight("", 13));
         assertFunction("SUBSTR(CAST('Quadratically' AS CHAR(13)), -5, 4)", createCharType(13), padRight("call", 13));
         assertFunction("SUBSTR(CAST('Quadratically' AS CHAR(13)), -5, 40)", createCharType(13), padRight("cally", 13));
         assertFunction("SUBSTR(CAST('Quadratically' AS CHAR(13)), -50, 4)", createCharType(13), padRight("", 13));
-        assertFunction("SUBSTR(CAST('Quadratically' AS CHAR(13)), 0, 4)", createCharType(13), padRight("", 13));
+        assertFunction("SUBSTR(CAST('Quadratically' AS CHAR(13)), 0, 4)", createCharType(13), padRight("Quad", 13));
         assertFunction("SUBSTR(CAST('Quadratically' AS CHAR(13)), 5, 0)", createCharType(13), padRight("", 13));
 
-        assertFunction("SUBSTR(CAST('abc def' AS CHAR(7)), 1, 4)", createCharType(7), padRight("abc", 7));
+        assertFunction("SUBSTR(CAST('abc def' AS CHAR(7)), 0, 4)", createCharType(7), padRight("abc", 7));
 
-        assertFunction("SUBSTRING(CAST('Quadratically' AS CHAR(13)) FROM 5)", createCharType(13), padRight("ratically", 13));
+        assertFunction("SUBSTRING(CAST('Quadratically' AS CHAR(13)) FROM 4)", createCharType(13), padRight("ratically", 13));
         assertFunction("SUBSTRING(CAST('Quadratically' AS CHAR(13)) FROM 50)", createCharType(13), padRight("", 13));
         assertFunction("SUBSTRING(CAST('Quadratically' AS CHAR(13)) FROM -5)", createCharType(13), padRight("cally", 13));
         assertFunction("SUBSTRING(CAST('Quadratically' AS CHAR(13)) FROM -50)", createCharType(13), padRight("", 13));
-        assertFunction("SUBSTRING(CAST('Quadratically' AS CHAR(13)) FROM 0)", createCharType(13), padRight("", 13));
+        assertFunction("SUBSTRING(CAST('Quadratically' AS CHAR(13)) FROM 0)", createCharType(13), padRight("Quadratically", 13));
 
-        assertFunction("SUBSTRING(CAST('Quadratically' AS CHAR(13)) FROM 5 FOR 6)", createCharType(13), padRight("ratica", 13));
-        assertFunction("SUBSTRING(CAST('Quadratically' AS CHAR(13)) FROM 5 FOR 50)", createCharType(13), padRight("ratically", 13));
+        assertFunction("SUBSTRING(CAST('Quadratically' AS CHAR(13)) FROM 4 FOR 6)", createCharType(13), padRight("ratica", 13));
+        assertFunction("SUBSTRING(CAST('Quadratically' AS CHAR(13)) FROM 4 FOR 50)", createCharType(13), padRight("ratically", 13));
         //
         // Test SUBSTRING for non-ASCII
-        assertFunction("SUBSTRING(CAST('\u4FE1\u5FF5,\u7231,\u5E0C\u671B' AS CHAR(7)) FROM 1 FOR 1)", createCharType(7), padRight("\u4FE1", 7));
-        assertFunction("SUBSTRING(CAST('\u4FE1\u5FF5,\u7231,\u5E0C\u671B' AS CHAR(7)) FROM 3 FOR 5)", createCharType(7), padRight(",\u7231,\u5E0C\u671B", 7));
-        assertFunction("SUBSTRING(CAST('\u4FE1\u5FF5,\u7231,\u5E0C\u671B' AS CHAR(7)) FROM 4)", createCharType(7), padRight("\u7231,\u5E0C\u671B", 7));
+        assertFunction("SUBSTRING(CAST('\u4FE1\u5FF5,\u7231,\u5E0C\u671B' AS CHAR(7)) FROM 0 FOR 1)", createCharType(7), padRight("\u4FE1", 7));
+        assertFunction("SUBSTRING(CAST('\u4FE1\u5FF5,\u7231,\u5E0C\u671B' AS CHAR(7)) FROM 2 FOR 5)", createCharType(7), padRight(",\u7231,\u5E0C\u671B", 7));
+        assertFunction("SUBSTRING(CAST('\u4FE1\u5FF5,\u7231,\u5E0C\u671B' AS CHAR(7)) FROM 3)", createCharType(7), padRight("\u7231,\u5E0C\u671B", 7));
         assertFunction("SUBSTRING(CAST('\u4FE1\u5FF5,\u7231,\u5E0C\u671B' AS CHAR(7)) FROM -2)", createCharType(7), padRight("\u5E0C\u671B", 7));
-        assertFunction("SUBSTRING(CAST('\uD801\uDC2Dend' AS CHAR(4)) FROM 1 FOR 1)", createCharType(4), padRight("\uD801\uDC2D", 4));
-        assertFunction("SUBSTRING(CAST('\uD801\uDC2Dend' AS CHAR(4)) FROM 2 FOR 3)", createCharType(4), padRight("end", 4));
-        assertFunction("SUBSTRING(CAST('\uD801\uDC2Dend' AS CHAR(40)) FROM 2 FOR 3)", createCharType(40), padRight("end", 40));
+        assertFunction("SUBSTRING(CAST('\uD801\uDC2Dend' AS CHAR(4)) FROM 0 FOR 1)", createCharType(4), padRight("\uD801\uDC2D", 4));
+        assertFunction("SUBSTRING(CAST('\uD801\uDC2Dend' AS CHAR(4)) FROM 1 FOR 3)", createCharType(4), padRight("end", 4));
+        assertFunction("SUBSTRING(CAST('\uD801\uDC2Dend' AS CHAR(40)) FROM 1 FOR 3)", createCharType(40), padRight("end", 40));
     }
 
     @Test

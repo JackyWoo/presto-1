@@ -19,7 +19,6 @@ import io.prestosql.annotation.UsedByGeneratedCode;
 import io.prestosql.metadata.BoundVariables;
 import io.prestosql.metadata.FunctionRegistry;
 import io.prestosql.metadata.SqlOperator;
-import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeManager;
@@ -30,7 +29,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static io.prestosql.metadata.Signature.typeVariable;
 import static io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
 import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
-import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.prestosql.spi.function.OperatorType.SUBSCRIPT;
 import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
 import static io.prestosql.util.Reflection.methodHandle;
@@ -94,7 +92,11 @@ public class ArraySubscriptOperator
     public static Long longSubscript(Type elementType, Block array, long index)
     {
         checkIndex(array, index);
-        int position = toIntExact(index - 1);
+        int position = toIntExact(index);
+
+        if(!validArrayIndex(array.getPositionCount(), position)){
+            return null;
+        }
         if (array.isNull(position)) {
             return null;
         }
@@ -106,7 +108,11 @@ public class ArraySubscriptOperator
     public static Boolean booleanSubscript(Type elementType, Block array, long index)
     {
         checkIndex(array, index);
-        int position = toIntExact(index - 1);
+        int position = toIntExact(index);
+
+        if(!validArrayIndex(array.getPositionCount(), position)){
+            return null;
+        }
         if (array.isNull(position)) {
             return null;
         }
@@ -118,7 +124,11 @@ public class ArraySubscriptOperator
     public static Double doubleSubscript(Type elementType, Block array, long index)
     {
         checkIndex(array, index);
-        int position = toIntExact(index - 1);
+        int position = toIntExact(index);
+
+        if(!validArrayIndex(array.getPositionCount(), position)){
+            return null;
+        }
         if (array.isNull(position)) {
             return null;
         }
@@ -130,7 +140,11 @@ public class ArraySubscriptOperator
     public static Slice sliceSubscript(Type elementType, Block array, long index)
     {
         checkIndex(array, index);
-        int position = toIntExact(index - 1);
+        int position = toIntExact(index);
+
+        if(!validArrayIndex(array.getPositionCount(), position)){
+            return null;
+        }
         if (array.isNull(position)) {
             return null;
         }
@@ -142,7 +156,11 @@ public class ArraySubscriptOperator
     public static Object objectSubscript(Type elementType, Block array, long index)
     {
         checkIndex(array, index);
-        int position = toIntExact(index - 1);
+        int position = toIntExact(index);
+
+        if(!validArrayIndex(array.getPositionCount(), position)){
+            return null;
+        }
         if (array.isNull(position)) {
             return null;
         }
@@ -152,19 +170,23 @@ public class ArraySubscriptOperator
 
     public static void checkArrayIndex(long index)
     {
-        if (index == 0) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "SQL array indices start at 1");
-        }
-        if (index < 0) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Array subscript is negative");
-        }
+//        if (index == 0) {
+//            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "SQL array indices start at 1");
+//        }
+//        if (index < 0) {
+//            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Array subscript is negative");
+//        }
     }
 
     public static void checkIndex(Block array, long index)
     {
-        checkArrayIndex(index);
-        if (index > array.getPositionCount()) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Array subscript out of bounds");
-        }
+//        checkArrayIndex(index);
+//        if (index >= array.getPositionCount()) {
+//            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Array subscript out of bounds");
+//        }
+    }
+
+    public static boolean validArrayIndex(int size, long index){
+        return index >= 0 && index < size;
     }
 }

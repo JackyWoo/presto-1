@@ -100,14 +100,14 @@ public final class BigintOperators
     }
 
     @ScalarOperator(DIVIDE)
-    @SqlType(StandardTypes.BIGINT)
-    public static long divide(@SqlType(StandardTypes.BIGINT) long left, @SqlType(StandardTypes.BIGINT) long right)
+    @SqlType(StandardTypes.DOUBLE)
+    public static double divide(@SqlType(StandardTypes.BIGINT) long left, @SqlType(StandardTypes.BIGINT) long right)
     {
         try {
             if (left == Long.MIN_VALUE && right == -1) {
                 throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, format("bigint division overflow: %s / %s", left, right));
             }
-            return left / right;
+            return left * 1.0D / right;
         }
         catch (ArithmeticException e) {
             throw new PrestoException(DIVISION_BY_ZERO, "Division by zero", e);

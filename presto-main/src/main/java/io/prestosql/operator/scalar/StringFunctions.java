@@ -196,14 +196,14 @@ public final class StringFunctions
     public static long stringPosition(@SqlType("varchar(x)") Slice string, @SqlType("varchar(y)") Slice substring)
     {
         if (substring.length() == 0) {
-            return 1;
+            return 0;
         }
 
         int index = string.indexOf(substring);
         if (index < 0) {
-            return 0;
+            return -1;
         }
-        return countCodePoints(string, 0, index) + 1;
+        return countCodePoints(string, 0, index);
     }
 
     @Description("suffix starting at given index")
@@ -212,14 +212,14 @@ public final class StringFunctions
     @SqlType("varchar(x)")
     public static Slice substr(@SqlType("varchar(x)") Slice utf8, @SqlType(StandardTypes.BIGINT) long start)
     {
-        if ((start == 0) || utf8.length() == 0) {
+        if (utf8.length() == 0) {
             return Slices.EMPTY_SLICE;
         }
 
         int startCodePoint = Ints.saturatedCast(start);
 
-        if (startCodePoint > 0) {
-            int indexStart = offsetOfCodePoint(utf8, startCodePoint - 1);
+        if (startCodePoint >= 0) {
+            int indexStart = offsetOfCodePoint(utf8, startCodePoint);
             if (indexStart < 0) {
                 // before beginning of string
                 return Slices.EMPTY_SLICE;
@@ -259,15 +259,15 @@ public final class StringFunctions
     @SqlType("varchar(x)")
     public static Slice substr(@SqlType("varchar(x)") Slice utf8, @SqlType(StandardTypes.BIGINT) long start, @SqlType(StandardTypes.BIGINT) long length)
     {
-        if (start == 0 || (length <= 0) || (utf8.length() == 0)) {
+        if ((length <= 0) || (utf8.length() == 0)) {
             return Slices.EMPTY_SLICE;
         }
 
         int startCodePoint = Ints.saturatedCast(start);
         int lengthCodePoints = Ints.saturatedCast(length);
 
-        if (startCodePoint > 0) {
-            int indexStart = offsetOfCodePoint(utf8, startCodePoint - 1);
+        if (startCodePoint >= 0) {
+            int indexStart = offsetOfCodePoint(utf8, startCodePoint);
             if (indexStart < 0) {
                 // before beginning of string
                 return Slices.EMPTY_SLICE;

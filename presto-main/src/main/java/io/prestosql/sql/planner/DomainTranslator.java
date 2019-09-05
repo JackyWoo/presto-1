@@ -16,8 +16,6 @@ package io.prestosql.sql.planner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.PeekingIterator;
-import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
 import io.prestosql.Session;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.Signature;
@@ -32,10 +30,7 @@ import io.prestosql.spi.predicate.SortedRangeSet;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.predicate.Utils;
 import io.prestosql.spi.predicate.ValueSet;
-import io.prestosql.spi.type.BigintType;
-import io.prestosql.spi.type.IntegerType;
 import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.VarcharType;
 import io.prestosql.sql.ExpressionUtils;
 import io.prestosql.sql.InterpretedFunctionInvoker;
 import io.prestosql.sql.parser.SqlParser;
@@ -469,57 +464,18 @@ public final class DomainTranslator
             ComparisonExpression.Operator comparisonOperator;
             NullableValue value;
 
-            if(!leftType.equals(rightType)
-                && matchImplicitConversionType(leftType, rightType)){
-                if (left instanceof Expression) {
-                    symbolExpression = comparison.getLeft();
-                    comparisonOperator = comparison.getOperator();
-                    value = new NullableValue(leftType, cast(right, leftType));
-                }else{
-                    symbolExpression = comparison.getRight();
-                    comparisonOperator = comparison.getOperator().flip();
-                    value = new NullableValue(rightType, cast(left, rightType));
-                }
-            }else {
-
-                if (left instanceof Expression) {
-                    symbolExpression = comparison.getLeft();
-                    comparisonOperator = comparison.getOperator();
-                    value = new NullableValue(rightType, right);
-                } else {
-                    symbolExpression = comparison.getRight();
-                    comparisonOperator = comparison.getOperator().flip();
-                    value = new NullableValue(leftType, left);
-                }
+            if (left instanceof Expression) {
+                symbolExpression = comparison.getLeft();
+                comparisonOperator = comparison.getOperator();
+                value = new NullableValue(rightType, right);
+            }
+            else {
+                symbolExpression = comparison.getRight();
+                comparisonOperator = comparison.getOperator().flip();
+                value = new NullableValue(leftType, left);
             }
 
             return Optional.of(new NormalizedSimpleComparison(symbolExpression, comparisonOperator, value));
-        }
-
-        private boolean matchImplicitConversionType(Type leftType, Type rightType){
-            boolean match = false;
-            if(leftType instanceof VarcharType &&
-                    (rightType instanceof IntegerType || rightType instanceof BigintType)){
-                match = true;
-            }
-            if(rightType instanceof VarcharType &&
-                    (leftType instanceof IntegerType || leftType instanceof BigintType)){
-                match = true;
-            }
-            return match;
-        }
-
-        private Object cast(Object obj, Type toType)
-        {
-            if(toType.getJavaType() == long.class && obj instanceof Slice){
-                return Long.valueOf(((Slice) obj).toStringUtf8());
-            }else if(toType.getJavaType() == Slice.class && obj instanceof Long){
-                return Slices.utf8Slice(String.valueOf(obj));
-            }else {
-                throw new RuntimeException(String.format("Unsupported implicit type conversion %s and %s",
-                        obj.getClass().getSimpleName(), toType.getDisplayName()));
-            }
-
         }
 
         private boolean isImplicitCoercion(Cast cast)

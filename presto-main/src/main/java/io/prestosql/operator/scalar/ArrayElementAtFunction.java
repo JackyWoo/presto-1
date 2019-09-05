@@ -14,7 +14,6 @@
 package io.prestosql.operator.scalar;
 
 import io.airlift.slice.Slice;
-import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.function.Description;
 import io.prestosql.spi.function.ScalarFunction;
@@ -23,7 +22,6 @@ import io.prestosql.spi.function.SqlType;
 import io.prestosql.spi.function.TypeParameter;
 import io.prestosql.spi.type.Type;
 
-import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static java.lang.Math.toIntExact;
 
 @ScalarFunction("element_at")
@@ -118,17 +116,11 @@ public final class ArrayElementAtFunction
     private static int checkedIndexToBlockPosition(Block block, long index)
     {
         int arrayLength = block.getPositionCount();
-        if (index == 0) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "SQL array indices start at 1");
-        }
-        if (Math.abs(index) > arrayLength) {
-            return -1; // -1 indicates that the element is out of range and "ELEMENT_AT" should return null
-        }
-        if (index > 0) {
-            return toIntExact(index - 1);
+        if (index >= 0 && index < arrayLength) {
+            return toIntExact(index);
         }
         else {
-            return toIntExact(arrayLength + index);
+            return -1; //-1 indicates that the element is out of range and "ELEMENT_AT" should return null
         }
     }
 }
