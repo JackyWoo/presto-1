@@ -1132,28 +1132,32 @@ public class ExpressionAnalyzer
                 InListExpression inListExpression = (InListExpression) valueList;
 
                 List<Expression> inList = inListExpression.getValues().stream().map(v -> {
-                    if(isVarchar(valueType) && isNumber(process(v, context))){
+                    if (isVarchar(valueType) && isNumber(process(v, context))) {
                         return new Cast(v, StandardTypes.VARCHAR);
-                    } else if(isNumber(valueType) && isVarchar(process(v, context))){
+                    } else if (isNumber(valueType) && isVarchar(process(v, context))) {
                         return new Cast(v, valueType.getDisplayName());
                     }
                     return v;
                 }).collect(Collectors.toList());
 
-                if(!inListExpression.getValues().equals(inList)) {
+                if (!inListExpression.getValues().equals(inList)) {
                     inListExpression = new InListExpression(inList);
                     node.setValueList(inListExpression);
                 }
+            }
 
+            // This method must be invoked before coerceToSingleType,
+            // or in ('a', 'ab') clause may report error
+            process(node.getValueList(), context);
+
+            if (node.getValueList() instanceof InListExpression) {
                 coerceToSingleType(context,
                         "IN value and list items must be the same type: %s",
-                        ImmutableList.<Expression>builder().add(value).addAll(inListExpression.getValues()).build());
+                        ImmutableList.<Expression>builder().add(value).addAll(((InListExpression)(node.getValueList())).getValues()).build());
             }
             else if (valueList instanceof SubqueryExpression) {
                 coerceToSingleType(context, node, "value and result of subquery must be of the same type for IN expression: %s vs %s", value, valueList);
             }
-
-            process(node.getValueList(), context);
 
             return setExpressionType(node, BOOLEAN);
         }
