@@ -27,6 +27,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import io.airlift.json.JsonCodec;
+import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.prestosql.plugin.hive.HdfsEnvironment.HdfsContext;
 import io.prestosql.plugin.hive.LocationService.WriteInfo;
@@ -43,6 +44,8 @@ import io.prestosql.plugin.hive.metastore.SortingColumn;
 import io.prestosql.plugin.hive.metastore.StorageFormat;
 import io.prestosql.plugin.hive.metastore.Table;
 import io.prestosql.plugin.hive.metastore.thrift.ThriftMetastoreUtil;
+import io.prestosql.plugin.hive.sql.rewrite.PrestoRewrite;
+import io.prestosql.plugin.hive.sql.rewrite.SqlParser;
 import io.prestosql.plugin.hive.statistics.HiveStatisticsProvider;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.Block;
@@ -257,6 +260,8 @@ public class HiveMetadata
     private final TypeTranslator typeTranslator;
     private final String prestoVersion;
     private final HiveStatisticsProvider hiveStatisticsProvider;
+
+    private static final Logger log = Logger.get(HiveMetadata.class);
 
     public HiveMetadata(
             SemiTransactionalHiveMetastore metastore,
@@ -1596,8 +1601,14 @@ public class HiveMetadata
                                 viewDefn = definition;
                             }
                         } else {
+                            // rewrite hive view syntax
                             String sql = view.getViewExpandedText().get();
-                            sql = sql.replace('`', '"');
+                            log.debug("hive view sql " + sql);
+
+                            sql = SqlParser.rewrite(sql, ImmutableList.of(PrestoRewrite::new));
+                            if(!sql.equals(view.getViewExpandedText().get())) {
+                                log.info("rewrite hive view sql to " + sql);
+                            }
                             String owner = view.getOwner();
                             if (owner != null) {
                                 int domainIndex = owner.indexOf('@');
