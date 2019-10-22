@@ -15,7 +15,6 @@ package io.prestosql.type;
 
 import io.airlift.slice.Slice;
 import io.airlift.slice.XxHash64;
-import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.function.BlockIndex;
 import io.prestosql.spi.function.BlockPosition;
@@ -26,7 +25,6 @@ import io.prestosql.spi.function.SqlNullable;
 import io.prestosql.spi.function.SqlType;
 import io.prestosql.spi.type.StandardTypes;
 
-import static io.prestosql.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.prestosql.spi.function.OperatorType.BETWEEN;
 import static io.prestosql.spi.function.OperatorType.CAST;
 import static io.prestosql.spi.function.OperatorType.EQUAL;
@@ -39,7 +37,6 @@ import static io.prestosql.spi.function.OperatorType.LESS_THAN;
 import static io.prestosql.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static io.prestosql.spi.function.OperatorType.NOT_EQUAL;
 import static io.prestosql.spi.function.OperatorType.XX_HASH_64;
-import static java.lang.String.format;
 
 public final class VarcharOperators
 {
@@ -108,7 +105,8 @@ public final class VarcharOperators
     @LiteralParameters("x")
     @ScalarOperator(CAST)
     @SqlType(StandardTypes.BOOLEAN)
-    public static boolean castToBoolean(@SqlType("varchar(x)") Slice value)
+    @SqlNullable
+    public static Boolean castToBoolean(@SqlType("varchar(x)") Slice value)
     {
         if (value.length() == 1) {
             byte character = toUpperCase(value.getByte(0));
@@ -134,7 +132,7 @@ public final class VarcharOperators
                 (toUpperCase(value.getByte(4)) == 'E')) {
             return false;
         }
-        throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to BOOLEAN", value.toStringUtf8()));
+        return null;
     }
 
     private static byte toUpperCase(byte b)
@@ -150,78 +148,89 @@ public final class VarcharOperators
     @LiteralParameters("x")
     @ScalarOperator(CAST)
     @SqlType(StandardTypes.DOUBLE)
-    public static double castToDouble(@SqlType("varchar(x)") Slice slice)
+    @SqlNullable
+    public static Double castToDouble(@SqlType("varchar(x)") Slice slice)
     {
         try {
             return Double.parseDouble(slice.toStringUtf8());
         }
         catch (Exception e) {
-            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to DOUBLE", slice.toStringUtf8()));
+            return null;
         }
     }
 
     @LiteralParameters("x")
     @ScalarOperator(CAST)
     @SqlType(StandardTypes.REAL)
-    public static long castToFloat(@SqlType("varchar(x)") Slice slice)
+    @SqlNullable
+    public static Long castToFloat(@SqlType("varchar(x)") Slice slice)
     {
         try {
-            return Float.floatToIntBits(Float.parseFloat(slice.toStringUtf8()));
+            return Long.valueOf(Float.floatToIntBits(Float.parseFloat(slice.toStringUtf8())));
         }
         catch (Exception e) {
-            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to REAL", slice.toStringUtf8()));
+            return null;
         }
     }
 
     @LiteralParameters("x")
     @ScalarOperator(CAST)
     @SqlType(StandardTypes.BIGINT)
-    public static long castToBigint(@SqlType("varchar(x)") Slice slice)
+    @SqlNullable
+    public static Long castToBigint(@SqlType("varchar(x)") Slice slice)
     {
         try {
-            return Long.parseLong(slice.toStringUtf8());
+            return Long.parseLong(intStringTrim(slice.toStringUtf8()));
         }
         catch (Exception e) {
-            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to BIGINT", slice.toStringUtf8()));
+            return null;
         }
     }
 
     @LiteralParameters("x")
     @ScalarOperator(CAST)
     @SqlType(StandardTypes.INTEGER)
-    public static long castToInteger(@SqlType("varchar(x)") Slice slice)
+    @SqlNullable
+    public static Long castToInteger(@SqlType("varchar(x)") Slice slice)
     {
         try {
-            return Integer.parseInt(slice.toStringUtf8());
+            return Long.valueOf(Integer.parseInt(intStringTrim(slice.toStringUtf8())));
         }
         catch (Exception e) {
-            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to INT", slice.toStringUtf8()));
+            return null;
         }
+    }
+
+    private static String intStringTrim(String s)
+    {
+        return s.contains(".") ? s.substring(0, s.indexOf(".")) : s;
     }
 
     @LiteralParameters("x")
     @ScalarOperator(CAST)
     @SqlType(StandardTypes.SMALLINT)
-    public static long castToSmallint(@SqlType("varchar(x)") Slice slice)
+    @SqlNullable
+    public static Long castToSmallint(@SqlType("varchar(x)") Slice slice)
     {
         try {
-            return Short.parseShort(slice.toStringUtf8());
+            return Long.valueOf(Short.parseShort(intStringTrim(slice.toStringUtf8())));
         }
         catch (Exception e) {
-            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to SMALLINT", slice.toStringUtf8()));
+            return null;
         }
     }
 
     @LiteralParameters("x")
     @ScalarOperator(CAST)
     @SqlType(StandardTypes.TINYINT)
-    public static long castToTinyint(@SqlType("varchar(x)") Slice slice)
+    @SqlNullable
+    public static Long castToTinyint(@SqlType("varchar(x)") Slice slice)
     {
         try {
-            return Byte.parseByte(slice.toStringUtf8());
+            return Long.valueOf(Byte.parseByte(intStringTrim(slice.toStringUtf8())));
         }
         catch (Exception e) {
-            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to TINYINT", slice.toStringUtf8()));
+            return null;
         }
     }
 
