@@ -190,4 +190,15 @@ public class PrestoRewrite extends SqlParser.Rewrite {
             tokenStreamRewriter.replace(ctx.SORT().getSymbol(), "order");
         }
     }
+
+    /**
+     * If function name contain ".", presto must quote it.
+     */
+    @Override
+    public void exitFunctionCall(OsqlBaseParser.FunctionCallContext ctx) {
+        OsqlBaseParser.QualifiedNameContext functionName = (OsqlBaseParser.QualifiedNameContext) ctx.getChild(0);
+        if(functionName.getChildCount() > 1){
+            tokenStreamRewriter.replace(functionName.start, functionName.stop, "\"" + nodeText(functionName) + "\"");
+        }
+    }
 }
