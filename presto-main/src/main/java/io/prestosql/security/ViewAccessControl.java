@@ -34,7 +34,7 @@ public class ViewAccessControl
     @Override
     public void checkCanSelectFromColumns(TransactionId transactionId, Identity identity, QualifiedObjectName tableName, Set<String> columnNames)
     {
-        delegate.checkCanSelectFromColumns(transactionId, identity, tableName, columnNames);
+        delegate.checkCanCreateViewWithSelectFromColumns(transactionId, identity, tableName, columnNames);
     }
 
     @Override
