@@ -15,6 +15,7 @@ package io.prestosql.plugin.hive.sql.rewrite;
 
 import org.antlr.v4.runtime.ParserRuleContext;
 import org.antlr.v4.runtime.TokenStream;
+import org.antlr.v4.runtime.tree.TerminalNode;
 
 import static io.prestosql.plugin.hive.sql.rewrite.Constants.BLANK;
 import static io.prestosql.plugin.hive.sql.rewrite.Constants.COMMA;
@@ -201,4 +202,22 @@ public class PrestoRewrite extends SqlParser.Rewrite {
             tokenStreamRewriter.replace(functionName.start, functionName.stop, "\"" + nodeText(functionName) + "\"");
         }
     }
+
+    /**
+     * Hive quotes string literal with both " and ', but Presto only "
+     *
+     * Resolution:
+     *  replace " with '
+     */
+    @Override
+    public void exitStringLiteral(OsqlBaseParser.StringLiteralContext ctx) {
+        for (TerminalNode stringLiteral : ctx.STRING()){
+            String value = stringLiteral.getText();
+            if(value.startsWith("\"")){
+                tokenStreamRewriter.replace(stringLiteral.getSymbol(),
+                        "'" + value.substring(1, value.length() - 1) + "'");
+            }
+        }
+    }
+
 }
