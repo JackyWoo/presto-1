@@ -17,6 +17,7 @@ import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Multimap;
+import com.google.common.collect.Sets;
 import io.airlift.slice.SliceUtf8;
 import io.prestosql.Session;
 import io.prestosql.SystemSessionProperties;
@@ -123,6 +124,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
@@ -169,6 +171,7 @@ import static io.prestosql.util.DateTimeUtils.parseTimestampLiteral;
 import static io.prestosql.util.DateTimeUtils.timeHasTimeZone;
 import static io.prestosql.util.DateTimeUtils.timestampHasTimeZone;
 import static java.lang.Math.max;
+import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Collections.unmodifiableMap;
@@ -496,6 +499,12 @@ public class ExpressionAnalyzer
             }
             else if(isNumber(leftType) && isVarchar(rightType)){
                 node.setRight(new Cast(node.getRight(), StandardTypes.DOUBLE));
+            }
+            else if(isTimeStamp(leftType) && isVarchar(rightType)){
+                node.setRight(new Cast(node.getRight(), StandardTypes.TIMESTAMP));
+            }
+            else if(isVarchar(leftType) && isTimeStamp(rightType)){
+                node.setLeft(new Cast(node.getLeft(), StandardTypes.TIMESTAMP));
             }
 
             OperatorType operatorType = OperatorType.valueOf(node.getOperator().name());
@@ -1071,15 +1080,40 @@ public class ExpressionAnalyzer
             Type maxType = process(node.getMax(), context);
 
             if(!isSameBaseType(valueType, minType, maxType)){
-                if(isVarchar(valueType)){
-                    node.setValue(new Cast(node.getValue(), StandardTypes.DOUBLE));
+                // varchar and timestamp
+                if(!Stream.of(valueType, minType, maxType)
+                        .filter(x -> !(isTimeStamp(x) || isVarchar(x)))
+                        .findAny()
+                        .isPresent()){
+                    if(isVarchar(valueType)){
+                        node.setValue(new Cast(node.getValue(), StandardTypes.TIMESTAMP));
+                    }
+                    if(isVarchar(minType)){
+                        node.setMin(new Cast(node.getMin(), StandardTypes.TIMESTAMP));
+                    }
+                    if(isVarchar(maxType)){
+                        node.setMax(new Cast(node.getMax(), StandardTypes.TIMESTAMP));
+                    }
                 }
-                if(isVarchar(minType)){
-                    node.setMin(new Cast(node.getMin(), StandardTypes.DOUBLE));
+                // varchar and integer etc.
+                else if(!Stream.of(valueType, minType, maxType)
+                        .filter(x -> !(isNumber(x) || isVarchar(x)))
+                        .findAny()
+                        .isPresent()){
+                    if(isVarchar(valueType)){
+                        node.setValue(new Cast(node.getValue(), StandardTypes.DOUBLE));
+                    }
+                    if(isVarchar(minType)){
+                        node.setMin(new Cast(node.getMin(), StandardTypes.DOUBLE));
+                    }
+                    if(isVarchar(maxType)){
+                        node.setMax(new Cast(node.getMax(), StandardTypes.DOUBLE));
+                    }
                 }
-                if(isVarchar(maxType)){
-                    node.setMax(new Cast(node.getMax(), StandardTypes.DOUBLE));
+                else{
+                    // ignore
                 }
+
             }
 
             return getOperator(context, node, OperatorType.BETWEEN, node.getValue(), node.getMin(), node.getMax());
@@ -1134,8 +1168,15 @@ public class ExpressionAnalyzer
                 List<Expression> inList = inListExpression.getValues().stream().map(v -> {
                     if (isVarchar(valueType) && isNumber(process(v, context))) {
                         return new Cast(v, StandardTypes.VARCHAR);
-                    } else if (isNumber(valueType) && isVarchar(process(v, context))) {
+                    }
+                    else if (isNumber(valueType) && isVarchar(process(v, context))) {
                         return new Cast(v, valueType.getDisplayName());
+                    }
+                    else if(isTimeStamp(valueType) && isVarchar(process(v, context))){
+                        return new Cast(v, valueType.getDisplayName());
+                    }
+                    else if(isVarchar(valueType) && isTimeStamp(process(v, context))){
+                        return new Cast(v, StandardTypes.VARCHAR);
                     }
                     return v;
                 }).collect(Collectors.toList());
@@ -1171,6 +1212,11 @@ public class ExpressionAnalyzer
                     type == DOUBLE ||
                     type == REAL ||
                     type.getTypeSignature().getBase().equals(StandardTypes.DECIMAL);
+        }
+
+        private boolean isTimeStamp(Type type)
+        {
+            return type == TIMESTAMP;
         }
 
         private boolean isSameBaseType(Type... types)

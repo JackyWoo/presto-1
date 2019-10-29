@@ -15,7 +15,6 @@ package io.prestosql.type;
 
 import io.airlift.slice.Slice;
 import io.airlift.slice.XxHash64;
-import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.function.BlockIndex;
@@ -34,7 +33,6 @@ import java.util.concurrent.TimeUnit;
 
 import static io.airlift.slice.SliceUtf8.trim;
 import static io.airlift.slice.Slices.utf8Slice;
-import static io.prestosql.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.prestosql.spi.function.OperatorType.BETWEEN;
 import static io.prestosql.spi.function.OperatorType.CAST;
 import static io.prestosql.spi.function.OperatorType.EQUAL;
@@ -199,8 +197,9 @@ public final class TimestampOperators
 
     @ScalarOperator(CAST)
     @LiteralParameters("x")
+    @SqlNullable
     @SqlType(StandardTypes.TIMESTAMP)
-    public static long castFromSlice(ConnectorSession session, @SqlType("varchar(x)") Slice value)
+    public static Long castFromSlice(ConnectorSession session, @SqlType("varchar(x)") Slice value)
     {
         // This accepts value with or without time zone
         if (session.isLegacyTimestamp()) {
@@ -208,7 +207,7 @@ public final class TimestampOperators
                 return parseTimestampWithoutTimeZone(session.getTimeZoneKey(), trim(value).toStringUtf8());
             }
             catch (IllegalArgumentException e) {
-                throw new PrestoException(INVALID_CAST_ARGUMENT, "Value cannot be cast to timestamp: " + value.toStringUtf8(), e);
+                return null;
             }
         }
         else {
@@ -216,7 +215,7 @@ public final class TimestampOperators
                 return parseTimestampWithoutTimeZone(trim(value).toStringUtf8());
             }
             catch (IllegalArgumentException e) {
-                throw new PrestoException(INVALID_CAST_ARGUMENT, "Value cannot be cast to timestamp: " + value.toStringUtf8(), e);
+                return null;
             }
         }
     }

@@ -59,7 +59,7 @@ public class PrestoRewrite extends SqlParser.Rewrite {
                 tokenStreamRewriter.insertBefore(parent.start, BLANK);
                 tokenStreamRewriter.insertBefore(parent.start, "not");
             }
-            tokenStreamRewriter.insertAfter(parent.start, COMMA);
+            tokenStreamRewriter.insertAfter(((ParserRuleContext)(parent.getChild(0))).stop, COMMA);
             tokenStreamRewriter.replace(ctx.start, ctx.stop, nodeText(ctx.pattern));
             tokenStreamRewriter.insertAfter(ctx.stop, RIGHT_PARENTHESIS);
         }
