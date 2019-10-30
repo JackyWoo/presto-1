@@ -110,7 +110,7 @@ public class SqlParser {
         /**
          * delete token and subsequent blank
          */
-        protected void deleteToken(Token token) {
+        protected void deleteTokenWithNextBlank(Token token) {
             tokenStreamRewriter.delete(token);
             int nextToken = token.getTokenIndex() + 1;
             if(blankToken(nextToken)){

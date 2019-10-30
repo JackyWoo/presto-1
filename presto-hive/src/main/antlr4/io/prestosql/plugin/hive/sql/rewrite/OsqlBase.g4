@@ -520,7 +520,7 @@ pivotValue
     ;
 
 lateralView
-    : LATERAL VIEW (OUTER)? qualifiedName '(' (expression (',' expression)*)? ')' tblName=identifier (AS? colName+=identifier (',' colName+=identifier)*)?
+    : LATERAL VIEW (OUTER)? funcName=qualifiedName '(' (expression (',' expression)*)? ')' tblName=identifier (AS? colName+=identifier (',' colName+=identifier)*)?
     ;
 
 setQuantifier

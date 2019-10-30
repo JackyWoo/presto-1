@@ -76,7 +76,7 @@ public class PrestoRewrite extends SqlParser.Rewrite {
         String operator = ctx.operator.getText();
         if("%".equals(operator)){
             tokenStreamRewriter.insertBefore(ctx.start, "mod(");
-            deleteToken(ctx.operator);
+            deleteTokenWithNextBlank(ctx.operator);
             tokenStreamRewriter.insertAfter(ctx.left.stop, COMMA);
             tokenStreamRewriter.insertAfter(ctx.stop, RIGHT_PARENTHESIS);
         }
@@ -91,12 +91,9 @@ public class PrestoRewrite extends SqlParser.Rewrite {
     public void enterFunctionCall(OsqlBaseParser.FunctionCallContext ctx) {
 
         if ("ARRAY".equals(ctx.getChild(0).getText().toUpperCase())){
-            int startIndex = ctx.start.getTokenIndex();
-            int leftParenthesis = tokenIndex(startIndex, LEFT_PARENTHESIS);
-            tokenStreamRewriter.replace(startIndex + 1, leftParenthesis, "[");
+            tokenStreamRewriter.replace(((TerminalNode)(ctx.getChild(1))).getSymbol(), "[");
             tokenStreamRewriter.replace(ctx.stop, "]");
         }
-
     }
 
     /**
@@ -119,19 +116,16 @@ public class PrestoRewrite extends SqlParser.Rewrite {
      */
     @Override
     public void enterLateralView(OsqlBaseParser.LateralViewContext ctx) {
-        if(!"EXPLODE".equals(ctx.getChild(2).getText().toUpperCase())){
+        if(!"EXPLODE".equals(nodeText(ctx.funcName).toUpperCase())){
             //TODO sql transform exception
             throw new RuntimeException("Lateral View query olny support UDTF explode");
         }
 
-        int explodeIndex = tokenIndex(ctx.start.getTokenIndex(), "explode");
-        tokenStreamRewriter.replace(ctx.start.getTokenIndex(), explodeIndex, "cross join unnest");
-
-        int expressionIndex = tokenIndex(explodeIndex, RIGHT_PARENTHESIS);
-        tokenStreamRewriter.insertAfter(expressionIndex, " as");
+        tokenStreamRewriter.replace(ctx.start, ctx.funcName.stop, "cross join unnest");
+        tokenStreamRewriter.insertBefore(ctx.tblName.start, "as ");
 
         if(ctx.AS() != null) {
-            deleteToken(ctx.AS().getSymbol());
+            deleteTokenWithNextBlank(ctx.AS().getSymbol());
         }
 
         if(ctx.colName != null && !ctx.colName.isEmpty()){
