@@ -124,7 +124,7 @@ public class HiveFileIterator
     {
         private final Path path;
         private final NamenodeStats namenodeStats;
-        private final RemoteIterator<LocatedFileStatus> fileStatusIterator;
+        private RemoteIterator<LocatedFileStatus> fileStatusIterator;
 
         private FileStatusIterator(Table table, Path path, FileSystem fileSystem, DirectoryLister directoryLister, NamenodeStats namenodeStats)
         {
@@ -132,6 +132,9 @@ public class HiveFileIterator
             this.namenodeStats = namenodeStats;
             try {
                 this.fileStatusIterator = directoryLister.list(fileSystem, table, path);
+            }
+            catch(FileNotFoundException e){
+                fileStatusIterator = null;
             }
             catch (IOException e) {
                 throw processException(e);
@@ -142,6 +145,9 @@ public class HiveFileIterator
         public boolean hasNext()
         {
             try {
+                if(fileStatusIterator == null){
+                    return false;
+                }
                 return fileStatusIterator.hasNext();
             }
             catch (IOException e) {
