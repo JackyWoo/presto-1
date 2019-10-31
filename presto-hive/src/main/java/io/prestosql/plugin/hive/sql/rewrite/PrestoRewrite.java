@@ -54,13 +54,18 @@ public class PrestoRewrite extends SqlParser.Rewrite {
 
             tokenStreamRewriter.insertBefore(parent.start, LEFT_PARENTHESIS);
             tokenStreamRewriter.insertBefore(parent.start, "regexp_like");
-            // case : col not regexp '.*'
+            tokenStreamRewriter.insertAfter(((ParserRuleContext)(parent.getChild(0))).stop, COMMA);
+
             if(ctx.getChildCount() == 3){
+                // case : col not regexp '.*'
                 tokenStreamRewriter.insertBefore(parent.start, BLANK);
                 tokenStreamRewriter.insertBefore(parent.start, "not");
+                deleteTokenWithNextBlank(((TerminalNode) (ctx.getChild(0))).getSymbol());
+                deleteTokenWithNextBlank(((TerminalNode) (ctx.getChild(1))).getSymbol());
+            }else {
+                // case : col regexp '.*'
+                deleteTokenWithNextBlank(((TerminalNode) (ctx.getChild(0))).getSymbol());
             }
-            tokenStreamRewriter.insertAfter(((ParserRuleContext)(parent.getChild(0))).stop, COMMA);
-            tokenStreamRewriter.replace(ctx.start, ctx.stop, nodeText(ctx.pattern));
             tokenStreamRewriter.insertAfter(ctx.stop, RIGHT_PARENTHESIS);
         }
     }
