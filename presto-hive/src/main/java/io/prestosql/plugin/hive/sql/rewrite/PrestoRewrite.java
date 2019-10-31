@@ -17,6 +17,9 @@ import org.antlr.v4.runtime.ParserRuleContext;
 import org.antlr.v4.runtime.TokenStream;
 import org.antlr.v4.runtime.tree.TerminalNode;
 
+import java.util.List;
+import java.util.stream.Collectors;
+
 import static io.prestosql.plugin.hive.sql.rewrite.Constants.BLANK;
 import static io.prestosql.plugin.hive.sql.rewrite.Constants.COMMA;
 import static io.prestosql.plugin.hive.sql.rewrite.Constants.LEFT_PARENTHESIS;
@@ -90,14 +93,26 @@ public class PrestoRewrite extends SqlParser.Rewrite {
     /**
      * Resolution:
      *  1. array(1, 2) => array[1, 2]
-     *  2. concat('a','b','c') => 'a' || 'b' || 'c'
+     *  2. If function name contain ".", presto must quote it.
      */
     @Override
-    public void enterFunctionCall(OsqlBaseParser.FunctionCallContext ctx) {
+    public void exitFunctionCall(OsqlBaseParser.FunctionCallContext ctx) {
 
-        if ("ARRAY".equals(ctx.getChild(0).getText().toUpperCase())){
+        OsqlBaseParser.QualifiedNameContext functionName = (OsqlBaseParser.QualifiedNameContext) ctx.getChild(0);
+
+        if ("ARRAY".equals(nodeText(functionName).toUpperCase())){
             tokenStreamRewriter.replace(((TerminalNode)(ctx.getChild(1))).getSymbol(), "[");
             tokenStreamRewriter.replace(ctx.stop, "]");
+        } else if(functionName.getChildCount() > 1){
+            List<String> parts = functionName.identifier().stream().map(part -> {
+                String p = nodeText(part);
+                if(p.startsWith("`") && p.endsWith("`")){
+                    p = p.substring(1, p.length() -1);
+                }
+                return p;
+            }).collect(Collectors.toList());
+            String newFunctionName = "\"" + String.join(".", parts) + "\"";
+            tokenStreamRewriter.replace(functionName.start, functionName.stop, newFunctionName);
         }
     }
 
@@ -188,17 +203,6 @@ public class PrestoRewrite extends SqlParser.Rewrite {
         }
         if(ctx.SORT() != null){
             tokenStreamRewriter.replace(ctx.SORT().getSymbol(), "order");
-        }
-    }
-
-    /**
-     * If function name contain ".", presto must quote it.
-     */
-    @Override
-    public void exitFunctionCall(OsqlBaseParser.FunctionCallContext ctx) {
-        OsqlBaseParser.QualifiedNameContext functionName = (OsqlBaseParser.QualifiedNameContext) ctx.getChild(0);
-        if(functionName.getChildCount() > 1){
-            tokenStreamRewriter.replace(functionName.start, functionName.stop, "\"" + nodeText(functionName) + "\"");
         }
     }
 
