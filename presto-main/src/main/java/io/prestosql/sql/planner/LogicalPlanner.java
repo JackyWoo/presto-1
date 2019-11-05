@@ -16,7 +16,6 @@ package io.prestosql.sql.planner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import io.airlift.log.Logger;
 import io.prestosql.Session;
 import io.prestosql.connector.CatalogName;
 import io.prestosql.cost.CachingCostProvider;
@@ -26,7 +25,6 @@ import io.prestosql.cost.CostProvider;
 import io.prestosql.cost.StatsAndCosts;
 import io.prestosql.cost.StatsCalculator;
 import io.prestosql.cost.StatsProvider;
-import io.prestosql.event.QueryMonitor;
 import io.prestosql.execution.warnings.WarningCollector;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.NewTableLayout;
@@ -76,16 +74,13 @@ import io.prestosql.sql.tree.NullLiteral;
 import io.prestosql.sql.tree.Query;
 import io.prestosql.sql.tree.Statement;
 
-import javax.naming.Context;
-import javax.naming.NamingException;
-import javax.naming.directory.InitialDirContext;
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.net.URL;
-import java.util.*;
 import java.util.AbstractMap.SimpleImmutableEntry;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
@@ -124,8 +119,6 @@ public class LogicalPlanner
     private final StatsCalculator statsCalculator;
     private final CostCalculator costCalculator;
     private final WarningCollector warningCollector;
-
-    Logger log = Logger.get(LogicalPlanner.class);
 
     public LogicalPlanner(Session session,
             List<PlanOptimizer> planOptimizers,
@@ -170,92 +163,6 @@ public class LogicalPlanner
     {
         PlanNode root = planStatement(analysis, analysis.getStatement());
 
-        Collection<TableHandle> tableHandles = analysis.getTables();
-        String user = session.getUser();
-
-//        Boolean isValid = true;
-
-        //jdbc valid
-        if (session.getSource().toString().equals("Optional[presto-jdbc]")) {
-            String passwordRaw = session.getClientInfo().toString();
-            if (passwordRaw == null || passwordRaw.length() <= 0 || passwordRaw.equals("Optional.empty")) {
-                log.info(format("%s user:%s Query is not Valid without ClientInfo ", session.getQueryId(), user));
-                root = null;
-                requireNonNull(root, format("hi %s , Query returned a null plan Because password needed . " +
-                        "Usage: setClientInfo(\"ClientInfo\", userpassword)", user));
-            }
-            int indexLeft = passwordRaw.lastIndexOf('[');
-            int indexRight = passwordRaw.indexOf(']');
-            String password = passwordRaw.substring(indexLeft + 1, indexRight);
-            if (password == null || password.length() <= 0) {
-                log.info(format("%s user:%s Query is not Valid without password  ", session.getQueryId(), user));
-                root = null;
-                requireNonNull(root, format("hi %s , Query returned a null plan Because password needed . ", user));
-            }
-
-            if (!validate(user, password)) {
-                log.info(format("%s user:%s The password does not match your account ! ", session.getQueryId(), user));
-                root = null;
-                requireNonNull(root, format("hi %s , The password does not match your account ! Please check", user));
-            }
-        }
-
-        String operatorType = "";
-        if (analysis.getStatement() instanceof Query || analysis.getStatement() instanceof Analyze ||
-                analysis.getStatement() instanceof Explain) {
-            operatorType = "select";
-        }
-        if (analysis.getStatement() instanceof Insert) {
-            operatorType = "insert";
-        }
-        if (analysis.getStatement() instanceof Delete || analysis.getStatement() instanceof CreateTableAsSelect) {
-            operatorType = "all";
-        }
-
-        if ("select".equals(operatorType) || "insert".equals(operatorType) || "all".equals(operatorType)) {
-            List<String> tables = new ArrayList<>();
-
-            for (TableHandle th : tableHandles) {
-
-                String database;
-                String table;
-                String connectorHandle = th.getConnectorHandle().toString();
-
-                if(connectorHandle.contains(":")){
-                    database = connectorHandle.split(":")[0];
-                    table = connectorHandle.split(":")[1];
-                }else {
-                    database = th.toString().split("\\.")[0];
-                    table = th.toString().split("\\.")[1];
-                }
-
-                tables.add(database + "::" + table + "::" + operatorType);
-
-//                log.info(format("queryID:%s user:%s database:%s table:%s operatorType:%s", session.getQueryId(), user,
-//                        database, table, operatorType));
-//                boolean isValidPart = true;
-//                if (session.getCatalog().toString().startsWith("Optional[hive")) {
-//                    isValidPart = getPermission(user, database, table, operatorType);
-//                }
-//                if (!isValidPart) {
-//                    isValid = false;
-//                    break;
-//                }
-
-            }
-            QueryMonitor.mapTable.put(session.getQueryId().toString(), tables);
-        }
-
-//        if (isValid) {
-//            log.info(format("queryID:%s user:%s   Query is Valid", session.getQueryId(), user));
-//        } else {
-//            root = null;
-//            log.info(format("queryID:%s user:%s   Query is not Valid , Insufficient data access ! Please check",
-//                    session.getQueryId(), user));
-//            requireNonNull(root, format("hi %s , Insufficient data access ! Please check . Get permissions: " +
-//                    "http://data.oppoer.me/portal/html/PermissionCreate.html", user));
-//        }
-
         planSanityChecker.validateIntermediatePlan(root, session, metadata, typeAnalyzer, symbolAllocator.getTypes(), warningCollector);
 
         if (stage.ordinal() >= Stage.OPTIMIZED.ordinal()) {
@@ -274,121 +181,6 @@ public class LogicalPlanner
         StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, session, types);
         CostProvider costProvider = new CachingCostProvider(costCalculator, statsProvider, Optional.empty(), session, types);
         return new Plan(root, types, StatsAndCosts.create(root, statsProvider, costProvider));
-    }
-
-    /**
-     * re_Fuction isPerson.
-     * Determine if the user is an individual user, true means the individual user ; false means the public user
-     */
-    public static boolean isUserID(String username) {
-        boolean isNum = true;
-        for (char c : username.toCharArray()) {
-            if (c < '0' || c > '9') {
-                isNum = false;
-                return isNum;
-            }
-        }
-        return isNum;
-    }
-
-
-    /**
-     * re_Fuction validate for AD by JDBC Query
-     * Determine if the user is an valid user
-     */
-    public boolean validate(String user, String password) {
-        boolean isLegal = false;
-        String url = "LDAP://10.13.25.16:389/";
-        String baseDn = "OU=data,OU=OS,OU=system users,DC=adc,DC=com";
-        if (isUserID(user)) {
-            log.info(format("%s :Individual users are not supported at the moment, please use AD public account", user));
-            return false;
-        }
-        String dn = "CN=" + user + "," + baseDn;
-
-        Properties props = new Properties();
-        props.put(Context.INITIAL_CONTEXT_FACTORY, "com.sun.jndi.ldap.LdapCtxFactory");
-        props.put(Context.PROVIDER_URL, url);
-        props.put(Context.SECURITY_PRINCIPAL, dn);
-        props.put(Context.SECURITY_CREDENTIALS, password);
-
-        try {
-//            LdapContext ldapContext = new InitialLdapContext(envTable, null);
-            InitialDirContext context = new InitialDirContext(props);
-            isLegal = true;
-            log.info(format("%s, congratulations  , AD Validate is successful", user));
-        } catch (NamingException e) {
-            log.info(format("%s, sorry  , AD Validate is failed", user));
-            isLegal = false;
-            e.printStackTrace();
-
-        }
-        return isLegal;
-    }
-
-
-    /**
-     * re_Fuction getPermission.
-     * verifies if the current user has permission to operate by Tianlu
-     */
-    public boolean getPermission(String user, String db, String table, String operator) {
-        log.info("db %s ", db);
-        if ("hive".equalsIgnoreCase(db) && "information_schema".equalsIgnoreCase(table) &&
-                "select".equalsIgnoreCase(operator)) {
-            return true;
-        }
-        //system connector information
-        if ((db.startsWith("$system@system") && "select".equalsIgnoreCase(operator))) {
-            return true;
-        }
-
-        String result = "";
-        String temp;
-        BufferedReader r = null;
-        boolean isValid = true;
-        try {
-            r = new BufferedReader(new InputStreamReader(new URL("http://data.oppoer.me" +
-                    "/portal/audits/dw_perms/?username=" + user + "&db=" + db
-                    + "&table=" + table).openStream()));
-        } catch (IOException e) {
-            log.info(format("FileNotFoundException , Maybe User  %s not exists !", user));
-            e.printStackTrace();
-        }
-        while (true) {
-            try {
-                if ((temp = r.readLine()) != null && temp != null) {
-                    result += temp;
-                } else {
-                    break;
-                }
-            } catch (IOException e) {
-                log.info(format("User %s not exists !", user));
-                e.printStackTrace();
-            }
-            log.info(format("result of TianLu: %s ", result));
-            HashMap<String, String> permsMap = new HashMap<>();
-            if (result.contains("{") && result.contains("}")) {
-                String perms = result.substring(result.lastIndexOf("{") + 1, result.indexOf("}")).
-                        replace("\"", "");
-                String[] permsArray = perms.split(",");
-                if (permsArray.length == 0) {
-                    return false;
-                }
-                for (String perm : permsArray) {
-                    permsMap.put(perm.split(":")[0], perm.split(":")[1]);
-                }
-            } else {
-                return false;
-            }
-
-            if (!permsMap.containsKey(operator)) {
-                return false;
-            } else {
-                isValid = Boolean.parseBoolean(permsMap.get(operator));
-            }
-
-        }
-        return isValid;
     }
 
     public PlanNode planStatement(Analysis analysis, Statement statement)
