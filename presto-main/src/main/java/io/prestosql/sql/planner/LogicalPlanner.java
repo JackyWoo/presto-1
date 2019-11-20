@@ -16,6 +16,7 @@ package io.prestosql.sql.planner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.airlift.log.Logger;
 import io.prestosql.Session;
 import io.prestosql.connector.CatalogName;
 import io.prestosql.cost.CachingCostProvider;
@@ -25,6 +26,7 @@ import io.prestosql.cost.CostProvider;
 import io.prestosql.cost.StatsAndCosts;
 import io.prestosql.cost.StatsCalculator;
 import io.prestosql.cost.StatsProvider;
+import io.prestosql.event.QueryMonitor;
 import io.prestosql.execution.warnings.WarningCollector;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.NewTableLayout;
@@ -74,13 +76,12 @@ import io.prestosql.sql.tree.NullLiteral;
 import io.prestosql.sql.tree.Query;
 import io.prestosql.sql.tree.Statement;
 
+import javax.naming.Context;
+import javax.naming.NamingException;
+import javax.naming.directory.InitialDirContext;
+import java.util.*;
 import java.util.AbstractMap.SimpleImmutableEntry;
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
 import java.util.Map.Entry;
-import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
@@ -120,27 +121,29 @@ public class LogicalPlanner
     private final CostCalculator costCalculator;
     private final WarningCollector warningCollector;
 
+    Logger log = Logger.get(LogicalPlanner.class);
+
     public LogicalPlanner(Session session,
-            List<PlanOptimizer> planOptimizers,
-            PlanNodeIdAllocator idAllocator,
-            Metadata metadata,
-            TypeAnalyzer typeAnalyzer,
-            StatsCalculator statsCalculator,
-            CostCalculator costCalculator,
-            WarningCollector warningCollector)
+                          List<PlanOptimizer> planOptimizers,
+                          PlanNodeIdAllocator idAllocator,
+                          Metadata metadata,
+                          TypeAnalyzer typeAnalyzer,
+                          StatsCalculator statsCalculator,
+                          CostCalculator costCalculator,
+                          WarningCollector warningCollector)
     {
         this(session, planOptimizers, DISTRIBUTED_PLAN_SANITY_CHECKER, idAllocator, metadata, typeAnalyzer, statsCalculator, costCalculator, warningCollector);
     }
 
     public LogicalPlanner(Session session,
-            List<PlanOptimizer> planOptimizers,
-            PlanSanityChecker planSanityChecker,
-            PlanNodeIdAllocator idAllocator,
-            Metadata metadata,
-            TypeAnalyzer typeAnalyzer,
-            StatsCalculator statsCalculator,
-            CostCalculator costCalculator,
-            WarningCollector warningCollector)
+                          List<PlanOptimizer> planOptimizers,
+                          PlanSanityChecker planSanityChecker,
+                          PlanNodeIdAllocator idAllocator,
+                          Metadata metadata,
+                          TypeAnalyzer typeAnalyzer,
+                          StatsCalculator statsCalculator,
+                          CostCalculator costCalculator,
+                          WarningCollector warningCollector)
     {
         this.session = requireNonNull(session, "session is null");
         this.planOptimizers = requireNonNull(planOptimizers, "planOptimizers is null");
@@ -163,6 +166,66 @@ public class LogicalPlanner
     {
         PlanNode root = planStatement(analysis, analysis.getStatement());
 
+        Collection<TableHandle> tableHandles = analysis.getTables();
+        String user = session.getUser();
+
+        //jdbc valid
+        if (session.getSource().toString().equals("Optional[presto-jdbc]")) {
+            String passwordRaw = session.getClientInfo().toString();
+            if (passwordRaw == null || passwordRaw.length() <= 0 || passwordRaw.equals("Optional.empty")) {
+                log.info(format("%s user:%s Query is not Valid without ClientInfo ", session.getQueryId(), user));
+                root = null;
+                requireNonNull(root, format("hi %s , Query returned a null plan Because password needed . " +
+                        "Usage: setClientInfo(\"ClientInfo\", userpassword)", user));
+            }
+            int indexLeft = passwordRaw.lastIndexOf('[');
+            int indexRight = passwordRaw.indexOf(']');
+            String password = passwordRaw.substring(indexLeft + 1, indexRight);
+            if (password == null || password.length() <= 0) {
+                log.info(format("%s user:%s Query is not Valid without password  ", session.getQueryId(), user));
+                root = null;
+                requireNonNull(root, format("hi %s , Query returned a null plan Because password needed . ", user));
+            }
+
+            if (!validate(user, password)) {
+                log.info(format("%s user:%s The password does not match your account , " +
+                        "or There was a network problem during validation, try again later ", session.getQueryId(), user));
+                root = null;
+                requireNonNull(root, format("hi %s , The password does not match your account , " +
+                        " or There was a network problem during validation, try again later ", user));
+            }
+        }
+
+        String operatorType = "";
+        if (analysis.getStatement() instanceof Query || analysis.getStatement() instanceof Analyze ||
+                analysis.getStatement() instanceof Explain) {
+            operatorType = "select";
+        }
+        if (analysis.getStatement() instanceof Insert) {
+            operatorType = "insert";
+        }
+        if (analysis.getStatement() instanceof Delete || analysis.getStatement() instanceof CreateTableAsSelect) {
+            operatorType = "all";
+        }
+        if ("select".equals(operatorType) || "insert".equals(operatorType) || "all".equals(operatorType)) {
+            List<String> tables = new ArrayList<>();
+            for (TableHandle th : tableHandles) {
+                String database;
+                String table;
+                String connectorHandle = th.getConnectorHandle().toString();
+
+                if(connectorHandle.contains(":")){
+                    database = connectorHandle.split(":")[0];
+                    table = connectorHandle.split(":")[1];
+                }else {
+                    database = th.toString().split("\\.")[0];
+                    table = th.toString().split("\\.")[1];
+                }
+                tables.add(database + "::" + table + "::" + operatorType);
+            }
+            QueryMonitor.mapTable.put(session.getQueryId().toString(), tables);
+        }
+
         planSanityChecker.validateIntermediatePlan(root, session, metadata, typeAnalyzer, symbolAllocator.getTypes(), warningCollector);
 
         if (stage.ordinal() >= Stage.OPTIMIZED.ordinal()) {
@@ -181,6 +244,61 @@ public class LogicalPlanner
         StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, session, types);
         CostProvider costProvider = new CachingCostProvider(costCalculator, statsProvider, Optional.empty(), session, types);
         return new Plan(root, types, StatsAndCosts.create(root, statsProvider, costProvider));
+    }
+
+    /**
+     * re_Fuction validate for AD by JDBC Query
+     * Determine if the user is an valid user
+     */
+    public boolean validate(String user, String password) {
+        boolean isLegal;
+        String url = "LDAP://10.13.25.16:389/";
+        String baseDn = "OU=data,OU=OS,OU=system users,DC=adc,DC=com";
+        if (isUserID(user)) {
+            log.info(format("%s :Individual users are not supported at the moment, please use AD public account", user));
+            return false;
+        }
+        String dn = "CN=" + user + "," + baseDn;
+
+        Properties props = new Properties();
+        props.put(Context.INITIAL_CONTEXT_FACTORY, "com.sun.jndi.ldap.LdapCtxFactory");
+        props.put(Context.PROVIDER_URL, url);
+        props.put(Context.SECURITY_PRINCIPAL, dn);
+        props.put(Context.SECURITY_CREDENTIALS, password);
+
+        try {
+
+            InitialDirContext context = new InitialDirContext(props);
+            isLegal = true;
+            log.info(format("%s, congratulations  , AD Validate is successful", user));
+        } catch (Exception e) {
+            try {
+                new InitialDirContext(props);
+                isLegal = true;
+            } catch (NamingException e1) {
+                log.info(format("%s, sorry  , AD Validate is failed", user));
+                isLegal = false;
+                e.printStackTrace();
+            }
+
+
+        }
+        return isLegal;
+    }
+
+    /**
+     * re_Fuction isPerson.
+     * Determine if the user is an individual user, true means the individual user ; false means the public user
+     */
+    public static boolean isUserID(String username) {
+        boolean isNum = true;
+        for (char c : username.toCharArray()) {
+            if (c < '0' || c > '9') {
+                isNum = false;
+                return isNum;
+            }
+        }
+        return isNum;
     }
 
     public PlanNode planStatement(Analysis analysis, Statement statement)
